@@ -7,7 +7,9 @@ IMAGE="rootkat-build:latest"
 
 if ! docker image inspect "$IMAGE" >/dev/null 2>&1; then
     echo "[build] Building Docker image $IMAGE..."
-    docker build --platform linux/amd64 -t "$IMAGE" "$ROOT/build"
+    # buildx + --load is required so Colima honors --platform.
+    docker buildx build --platform linux/amd64 --load \
+        -t "$IMAGE" "$ROOT/build"
 fi
 
 TARGET="${1:-all}"
