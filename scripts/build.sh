@@ -15,7 +15,8 @@ fi
 TARGET="${1:-all}"
 
 docker run --rm --platform linux/amd64 \
+    -e ROOTKAT_I_UNDERSTAND=1 \
     -v "$ROOT":/work \
     -w /work \
     "$IMAGE" \
-    bash -c "make -C lkm $TARGET && make -C ebpf $TARGET"
+    bash -c "make -C lkm $TARGET"
