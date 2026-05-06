@@ -1,0 +1,27 @@
+# Build artifacts
+*.o
+*.ko
+*.mod
+*.mod.c
+*.cmd
+*.symvers
+Module.symvers
+modules.order
+.tmp_versions/
+build/
+
+# eBPF
+ebpf/vmlinux.h
+ebpf/*.bpf.o
+ebpf/loader
+
+# QEMU test artifacts
+tests/qemu/images/
+tests/qemu/initrd/
+tests/qemu/*.log
+
+# Editor
+.vscode/
+.idea/
+*.swp
+.DS_Store
