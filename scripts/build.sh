@@ -14,9 +14,15 @@ fi
 
 TARGET="${1:-all}"
 
+BTF_MOUNT=()
+if [ -e /sys/kernel/btf/vmlinux ]; then
+    BTF_MOUNT=(-v /sys/kernel/btf:/sys/kernel/btf:ro)
+fi
+
 docker run --rm --platform linux/amd64 \
     -e ROOTKAT_I_UNDERSTAND=1 \
+    ${BTF_MOUNT[@]+"${BTF_MOUNT[@]}"} \
     -v "$ROOT":/work \
     -w /work \
     "$IMAGE" \
-    bash -c "make -C lkm $TARGET"
+    bash -c "make -C lkm $TARGET && make -C ebpf $TARGET"
