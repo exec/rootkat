@@ -1,5 +1,6 @@
 # Ubuntu 26.04 LTS ships kernel 7.0 — match the target.
-FROM ubuntu:26.04
+# Pinned to amd64 so Apple Silicon hosts cross-build correctly.
+FROM --platform=linux/amd64 ubuntu:26.04
 
 ENV DEBIAN_FRONTEND=noninteractive
 RUN apt-get update && apt-get install -y --no-install-recommends \

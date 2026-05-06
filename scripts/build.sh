@@ -7,12 +7,12 @@ IMAGE="rootkat-build:latest"
 
 if ! docker image inspect "$IMAGE" >/dev/null 2>&1; then
     echo "[build] Building Docker image $IMAGE..."
-    docker build -t "$IMAGE" "$ROOT/build"
+    docker build --platform linux/amd64 -t "$IMAGE" "$ROOT/build"
 fi
 
 TARGET="${1:-all}"
 
-docker run --rm \
+docker run --rm --platform linux/amd64 \
     -v "$ROOT":/work \
     -w /work \
     "$IMAGE" \
