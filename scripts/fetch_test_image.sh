@@ -11,6 +11,9 @@ IMG_PATH="$IMG_DIR/ubuntu-26.04.img"
 
 if [ ! -f "$IMG_PATH" ]; then
     echo "[fetch] Downloading Ubuntu 26.04 cloud image..."
-    curl -L -o "$IMG_PATH" "$IMG_URL"
+    # -f fails on HTTP errors; download to .tmp and rename so partial
+    # downloads do not poison the cache on next run.
+    curl -fL --retry 3 -o "$IMG_PATH.tmp" "$IMG_URL"
+    mv "$IMG_PATH.tmp" "$IMG_PATH"
 fi
 echo "[fetch] image at $IMG_PATH"
