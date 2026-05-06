@@ -6,14 +6,18 @@ on:
 
 jobs:
   build-and-test:
-    runs-on: ubuntu-26.04
+    # ubuntu-26.04 isn't a valid GH Actions label yet (Apr 2026 release,
+    # runners lag). 24.04 has KVM, BTF, modern qemu, and BuildKit — the
+    # kernel-7.0 testing all happens inside the Docker container and the
+    # QEMU VM, so the runner OS doesn't have to be 26.04.
+    runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v4
 
       - name: Install host deps
         run: |
           sudo apt-get update
-          sudo apt-get install -y qemu-system-x86 cloud-image-utils docker.io
+          sudo apt-get install -y qemu-system-x86 cloud-image-utils
 
       - name: Build (Docker)
         run: ./scripts/build.sh
