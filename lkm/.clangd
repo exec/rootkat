@@ -1,0 +1,6 @@
+# Kernel-mode C — these files use Linux kernel headers that don't exist
+# on the dev host (macOS / Darwin). Real compilation happens inside the
+# Docker build container with linux-headers-generic. Suppress LSP noise
+# here so legitimate review feedback isn't drowned in 'linux/*.h not found'.
+Diagnostics:
+  Suppress: "*"
