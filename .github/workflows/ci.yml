@@ -1,0 +1,31 @@
+name: ci
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  build-and-test:
+    runs-on: ubuntu-26.04
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install host deps
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y qemu-system-x86 cloud-image-utils docker.io
+
+      - name: Build (Docker)
+        run: ./scripts/build.sh
+
+      - name: Fetch Ubuntu 26.04 cloud image
+        run: ./scripts/fetch_test_image.sh
+
+      - name: Test - load/unload baseline
+        run: ./tests/qemu/run.sh tests/qemu/test_load_unload.sh
+
+      - name: Test - self-hide
+        run: ./tests/qemu/run.sh tests/qemu/test_self_hide.sh
+
+      - name: Test - file-hide via eBPF
+        run: ./tests/qemu/run.sh tests/qemu/test_file_hide.sh
