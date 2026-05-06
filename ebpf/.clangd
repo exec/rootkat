@@ -1,0 +1,5 @@
+# eBPF C — uses generated vmlinux.h and bpf/* headers that don't exist on
+# the dev host (macOS). Real compilation happens inside the Docker build
+# container with clang -target bpf. Suppress LSP noise here.
+Diagnostics:
+  Suppress: "*"
