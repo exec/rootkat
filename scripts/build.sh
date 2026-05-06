@@ -5,7 +5,7 @@ set -euo pipefail
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 IMAGE="rootkat-build:latest"
 
-if ! docker image inspect "$IMAGE" >/dev/null 2>&1; then
+if [ "${BUILD_IMAGE_FORCE:-0}" = "1" ] || ! docker image inspect "$IMAGE" >/dev/null 2>&1; then
     echo "[build] Building Docker image $IMAGE..."
     # buildx + --load is required so Colima honors --platform.
     docker buildx build --platform linux/amd64 --load \

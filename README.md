@@ -25,6 +25,10 @@ All builds run in a Docker container (works on macOS / non-Linux hosts):
 
     ./scripts/build.sh
 
+Requires Docker + buildx. Colima users: `brew install docker-buildx` once.
+The first invocation builds the container (~2 min); subsequent runs reuse it.
+Force a rebuild with `BUILD_IMAGE_FORCE=1 ./scripts/build.sh`.
+
 ## Testing
 
     ./tests/qemu/run.sh tests/qemu/test_self_hide.sh

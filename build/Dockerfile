@@ -9,6 +9,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
         llvm \
         libelf-dev \
         libbpf-dev \
+        zlib1g-dev \
         bpftool \
         linux-headers-generic \
         pkg-config \
