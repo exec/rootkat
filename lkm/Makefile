@@ -4,6 +4,7 @@ $(error Set ROOTKAT_I_UNDERSTAND=1 to build. See README.md)
 endif
 
 obj-m += rootkat.o
+rootkat-y := main.o kallsyms.o
 
 # Inside the build container, $(uname -r) returns the host kernel which has
 # no headers tree. Resolve KDIR from the headers package layout instead.
