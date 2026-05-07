@@ -9,6 +9,9 @@ ENV DEBIAN_FRONTEND=noninteractive
 
 # Base toolchain + kernel-build prerequisites. linux-headers-generic
 # pulls in the right ABI version for the target Ubuntu release.
+# bpftool is a real package on Ubuntu 26.04 but a virtual one on
+# 24.04 (provided by linux-tools-X-generic). linux-tools-generic
+# is the meta-package that pulls the per-kernel tools — works on both.
 RUN apt-get update && apt-get install -y --no-install-recommends \
         build-essential \
         clang \
@@ -16,7 +19,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
         libelf-dev \
         libbpf-dev \
         zlib1g-dev \
-        bpftool \
+        linux-tools-generic \
         linux-headers-generic \
         pkg-config \
         ca-certificates \
