@@ -2,22 +2,41 @@
 
 An educational, open-source Linux 7.0+ rootkit. The goal is to teach how modern
 kernel-mode stealth techniques actually work on contemporary kernels with CFI,
-FineIBT, lockdown, and BTF/CO-RE — and to ship the matching detection
+FineIBT, lockdown, BTF/CO-RE, and BPF LSM — and to ship the matching detection
 documentation alongside.
 
 ## Status
 
-Skeleton phase. Architecture pinned, vertical slice in progress. See
-`docs/superpowers/plans/` for the active plan.
+v0.2 — six rootkit features verified end-to-end against Linux 7.0 in CI:
+
+| Feature                     | Mechanism                                     | Trigger                       |
+|-----------------------------|-----------------------------------------------|-------------------------------|
+| Self-hide from `/proc/modules` | ftrace hook on `m_show`                    | Automatic on load             |
+| Self-hide from `/sys/module/`  | ftrace hook on `filldir64`                 | Automatic on load             |
+| File hide                   | CO-RE eBPF on `lsm/file_open`                | `loader <name>`               |
+| Privesc to root             | ftrace hook on `__x64_sys_kill`              | `kill(0, 64)`                 |
+| Process hide                | ftrace hook on `filldir64`                   | `kill(0, 63)` from the target |
+| TCP port hide (`/proc/net/tcp`) | ftrace hook on `tcp4_seq_show`           | `kill(<port>, 62)`            |
+
+All techniques are documented in `docs/threat-model.md` with their detection
+artifacts. The matching test for each lives in `tests/qemu/test_*.sh` and runs
+inside a real kernel-7.0 QEMU VM in CI.
 
 ## Design
 
-- **LKM (C)** — small, ftrace-based, does only what eBPF cannot: self-hide,
-  hide BPF programs from `bpftool prog list`, kernel-text rewriting.
-- **eBPF (CO-RE)** — bulk of functionality (file/process/network hiding)
-  using LSM hooks and tracepoints. Survives kernel upgrades by design.
-- **Userland loader** — libbpf-based; loads and pins both components.
-- **QEMU test harness** — every behavior is asserted against a real kernel.
+- **LKM (C)** — ftrace-based hooks, kprobe-bootstrapped `kallsyms_lookup_name`,
+  multi-candidate symbol resolver for kernel-version drift. Does the things eBPF
+  structurally cannot: kernel-text rewriting, self-hiding, syscall return-value
+  modification.
+- **eBPF (CO-RE)** — LSM hooks for portable, version-survives stealth. Today:
+  one program (file hide). v2 will add: BPF program self-hide, netlink/sock_diag
+  rewriting (so `ss` is fooled too).
+- **Userland loader (libbpf)** — loads and attaches the eBPF program; survives
+  rebuilds across kernel versions via CO-RE relocations.
+- **QEMU test harness** — drives a kernel-7.0 cloud image with cloud-init, runs
+  each test inside the VM, propagates pass/fail. Auto-rewrites GRUB to put
+  `bpf` in the LSM list before the file-hide test (Ubuntu 26.04's default
+  cmdline omits it).
 
 ## Building
 
@@ -31,15 +50,44 @@ Force a rebuild with `BUILD_IMAGE_FORCE=1 ./scripts/build.sh`.
 
 ## Testing
 
+The test harness needs KVM + cloud-localds + qemu-system-x86_64; CI on
+GitHub Actions has all of them. Locally on Linux:
+
     ./tests/qemu/run.sh tests/qemu/test_self_hide.sh
+    ./tests/qemu/run.sh tests/qemu/test_file_hide.sh
+    ./tests/qemu/run.sh tests/qemu/test_privesc.sh
+    ./tests/qemu/run.sh tests/qemu/test_process_hide.sh
+    ./tests/qemu/run.sh tests/qemu/test_network_hide.sh
+
+On macOS the QEMU step can't run locally (no KVM); push and let CI exercise it.
 
 ## Threat model & detection
 
-See `docs/threat-model.md`. Every stealth technique in rootkat ships with a
-matching detection note — that's a deliverable, not an afterthought.
+See `docs/threat-model.md`. Every stealth technique here ships with a matching
+detection note — that's a deliverable, not an afterthought. A defender who
+reads the threat model can build a detector for rootkat in an afternoon.
+
+## What's NOT here yet (v2 backlog)
+
+- BPF program self-hide (visible to `bpftool prog list`)
+- Netlink/sock_diag rewriting (so `ss` is also fooled, not just /proc/net/tcp)
+- Audit log suppression
+- IPv6 / UDP / Unix-socket hiding
+- io_uring covert channel
+- Rust LKM component
+- Multi-kernel CI matrix (linux-next bumps)
+- Persistence / auto-load on boot
+- C2 integration
 
 ## Educational use only
 
 This project exists to teach kernel security. Loading rootkat on a system you
 do not own is illegal in most jurisdictions. The Makefile requires
-`ROOTKAT_I_UNDERSTAND=1` to build.
+`ROOTKAT_I_UNDERSTAND=1` to build, and the project respects:
+
+- Kernel lockdown LSM (`integrity` / `confidentiality` modes refuse loading)
+- Module signature enforcement (`module.sig_enforce=1` refuses unsigned)
+- `kernel.unprivileged_bpf_disabled=2` (eBPF needs CAP_BPF)
+
+If you're using this to learn, the most valuable thing you can do after reading
+the code is read `docs/threat-model.md` and then try to build a detector.
