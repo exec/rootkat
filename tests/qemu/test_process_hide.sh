@@ -28,16 +28,16 @@ exec 3<&-
 
 assert_zero "module unloads" rmmod rootkat
 
-# After unload, a fresh helper's PID should be visible again. (The OLD
-# helper's PID is gone because the process is gone, not because it's
-# hidden — hidden_pids list lives in the unloaded module's memory.)
-exec 3< <(tests/qemu/hide_helper)
-read -r SECOND_PID <&3
-sleep 0.5
+# After unload, an unrelated background process's PID must be visible.
+# (Don't use hide_helper here — without our hook intercepting it, signal
+# 63 = SIGRTMAX-1 has default-terminate disposition and would kill the
+# helper before we get to check.)
+sleep 30 &
+SECOND_PID=$!
+sleep 0.2
 assert_zero "post-unload: pid visible in ls" \
 	bash -c "ls /proc | grep -qx $SECOND_PID"
 kill $SECOND_PID 2>/dev/null || true
 wait $SECOND_PID 2>/dev/null || true
-exec 3<&-
 
 report
