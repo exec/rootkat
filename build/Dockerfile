@@ -9,9 +9,15 @@ ENV DEBIAN_FRONTEND=noninteractive
 
 # Base toolchain + kernel-build prerequisites. linux-headers-generic
 # pulls in the right ABI version for the target Ubuntu release.
-# bpftool is a real package on Ubuntu 26.04 but a virtual one on
-# 24.04 (provided by linux-tools-X-generic). linux-tools-generic
-# is the meta-package that pulls the per-kernel tools — works on both.
+# bpftool packaging differs across releases:
+#   26.04: a real `bpftool` package puts the binary at /usr/sbin/bpftool.
+#   24.04: virtual; provided by linux-tools-X.Y-generic at
+#          /usr/lib/linux-tools/<ver>/bpftool, with a /usr/sbin/bpftool
+#          wrapper that calls `uname -r`. Inside a container `uname -r`
+#          returns the HOST kernel, not the headers' kernel — so the
+#          wrapper fails to find the right binary.
+# Install both (whichever exists) then symlink the per-version binary
+# directly into /usr/local/bin/bpftool so PATH lookups always resolve.
 RUN apt-get update && apt-get install -y --no-install-recommends \
         build-essential \
         clang \
@@ -19,12 +25,16 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
         libelf-dev \
         libbpf-dev \
         zlib1g-dev \
-        linux-tools-generic \
         linux-headers-generic \
         pkg-config \
         ca-certificates \
         git \
-    && rm -rf /var/lib/apt/lists/*
+ && (apt-get install -y --no-install-recommends bpftool 2>/dev/null \
+     || apt-get install -y --no-install-recommends linux-tools-generic) \
+ && BPFTOOL=$(command -v bpftool || find /usr/lib/linux-tools* -type f -name bpftool 2>/dev/null | head -n1) \
+ && [ -n "$BPFTOOL" ] && ln -sf "$BPFTOOL" /usr/local/bin/bpftool \
+ && /usr/local/bin/bpftool --version \
+ && rm -rf /var/lib/apt/lists/*
 
 # Kernel-Rust support: only some Ubuntu releases ship the
 # linux-lib-rust-X-generic package. We resolve the kernel ABI from the
