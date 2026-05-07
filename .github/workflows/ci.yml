@@ -33,6 +33,10 @@ jobs:
       - name: Fetch Ubuntu 26.04 cloud image
         run: ./scripts/fetch_test_image.sh
 
+      - name: Probe - kallsyms (transient diagnostic for ss-hide hook)
+        continue-on-error: true
+        run: ./tests/qemu/run.sh tests/qemu/probe_kallsyms.sh
+
       - name: Test - load/unload baseline
         run: ./tests/qemu/run.sh tests/qemu/test_load_unload.sh
 
