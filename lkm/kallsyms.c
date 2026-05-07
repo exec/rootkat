@@ -18,6 +18,12 @@ typedef int (*on_each_cb_t)(void *data, const char *name, unsigned long addr);
 typedef int (*on_each_t)(on_each_cb_t fn, void *data);
 static on_each_t on_each_sym;
 
+/* __module_address is not always EXPORT_SYMBOL_GPL'd (Ubuntu 7.0
+ * builds drop it from the symtab). Resolve via kallsyms and call
+ * through a function pointer. */
+typedef struct module *(*module_address_t)(unsigned long addr);
+static module_address_t mod_addr_fn;
+
 static int __kprobes noop_pre(struct kprobe *p, struct pt_regs *regs)
 {
 	return 0;
@@ -67,7 +73,7 @@ static int rootkat_lookup_cb(void *data, const char *name, unsigned long addr)
 	if (strcmp(name, ctx->target_name))
 		return 0;
 
-	mod = __module_address(addr);
+	mod = mod_addr_fn ? mod_addr_fn(addr) : NULL;
 	if (!mod) {
 		/* vmlinux symbol */
 		if (!ctx->target_module) {
@@ -98,6 +104,11 @@ unsigned long rootkat_lookup_in_module(const char *name,
 			pr_warn(TAG "kallsyms_on_each_symbol not resolved\n");
 			return 0;
 		}
+	}
+	if (!mod_addr_fn) {
+		mod_addr_fn = (module_address_t)rootkat_lookup_name("__module_address");
+		if (!mod_addr_fn)
+			pr_warn(TAG "__module_address not resolved (vmlinux/module distinction unreliable)\n");
 	}
 	on_each_sym(rootkat_lookup_cb, &ctx);
 	if (ctx.result)
