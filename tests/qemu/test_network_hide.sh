@@ -10,6 +10,12 @@ cd /root/rootkat
 
 PORT=12345
 
+# Clear the kernel ring buffer up front so the dmesg dump at the end
+# only contains messages from module load / test execution. By default
+# the cloud-init + systemd boot fills the 128KB buffer and rotates our
+# module's init prints out before the test reaches the dmesg check.
+dmesg -c >/dev/null 2>&1 || true
+
 # /proc/net/tcp lists local ports as hex in column 2 (LADDR:LPORT).
 # This filter extracts the LPORT column from every data row and prints
 # it as decimal, one per line.
