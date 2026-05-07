@@ -9,6 +9,8 @@ Module.symvers
 modules.order
 .tmp_versions/
 core
+*.d
+.*.d
 
 # Rust kbuild scatter
 rust/*.rmeta

