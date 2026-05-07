@@ -56,3 +56,6 @@ jobs:
 
       - name: Test - Rust LKM (kernel 7.0 stable Rust)
         run: ./tests/qemu/run.sh tests/qemu/test_rust_module.sh
+
+      - name: Test - BPF program self-hide
+        run: ./tests/qemu/run.sh tests/qemu/test_bpf_hide.sh

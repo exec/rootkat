@@ -6,7 +6,14 @@ endif
 
 CFLAGS ?= -O2 -Wall -Wextra -static
 
-HELPERS := qemu/privesc_helper qemu/hide_helper qemu/net_helper
+# bpf_lister links libbpf (dynamically — static libbpf needs libelf+zlib
+# bundled which is brittle across glibc versions; the cloud image ships
+# libbpf at runtime).
+PKGCFG       ?= pkg-config
+LIBBPF_CFLAGS := $(shell $(PKGCFG) --cflags libbpf)
+LIBBPF_LIBS   := $(shell $(PKGCFG) --libs libbpf)
+
+HELPERS := qemu/privesc_helper qemu/hide_helper qemu/net_helper qemu/bpf_lister
 
 all: $(HELPERS)
 
@@ -18,6 +25,9 @@ qemu/hide_helper: qemu/hide_helper.c
 
 qemu/net_helper: qemu/net_helper.c
 	$(CC) $(CFLAGS) $< -o $@
+
+qemu/bpf_lister: qemu/bpf_lister.c
+	$(CC) -O2 -Wall -Wextra $(LIBBPF_CFLAGS) $< -o $@ $(LIBBPF_LIBS) -lelf -lz
 
 clean:
 	rm -f $(HELPERS)
