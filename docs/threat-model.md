@@ -47,6 +47,21 @@ modern stealth techniques and documents how each is detected.
 - Only the local port is matched; remote-port-only filtering would need
   a separate code path.
 
+### Persistence via systemd
+
+- `scripts/install.sh` writes a unit file at
+  `/etc/systemd/system/rootkat-lkm.service` and a module copy at
+  `/usr/local/lib/rootkat/rootkat.ko`. Both are visible to a defender
+  walking `/etc/systemd/system/` or `/usr/local/lib/` *unless* further
+  filesystem hiding is layered on (e.g. via the eBPF file-hide hook).
+- `systemctl is-enabled rootkat-lkm.service` returns `enabled` — the
+  systemd unit is enumerable via dbus / `systemctl list-unit-files`
+  even when the LKM is hidden from `/proc/modules`.
+- The `Description=` field of the unit file is the strongest static
+  indicator and trivially renamable. Detection via behavioral analysis
+  of the auto-load (e.g. an unrecognized module loaded before
+  `multi-user.target`) is more robust than string-based hunts.
+
 ### eBPF file hide via LSM
 
 - `bpftool prog list` shows the loaded program (until BPF-program-hiding is

@@ -61,6 +61,13 @@ GitHub Actions has all of them. Locally on Linux:
 
 On macOS the QEMU step can't run locally (no KVM); push and let CI exercise it.
 
+## Persistence
+
+Use `scripts/install.sh` (run as root on the target) to install rootkat as a
+systemd service that auto-loads on every boot. `scripts/uninstall.sh` reverses
+it. `tests/qemu/test_persistence.sh` exercises the full install → reboot →
+verify → uninstall cycle inside QEMU.
+
 ## Threat model & detection
 
 See `docs/threat-model.md`. Every stealth technique here ships with a matching
@@ -76,7 +83,6 @@ reads the threat model can build a detector for rootkat in an afternoon.
 - io_uring covert channel
 - Rust LKM component
 - Multi-kernel CI matrix (linux-next bumps)
-- Persistence / auto-load on boot
 - C2 integration
 
 ## Educational use only
