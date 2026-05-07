@@ -19,6 +19,7 @@ ebpf/loader
 tests/qemu/images/
 tests/qemu/initrd/
 tests/qemu/*.log
+tests/qemu/privesc_helper
 
 # Editor
 .vscode/

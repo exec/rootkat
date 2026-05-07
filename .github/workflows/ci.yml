@@ -41,3 +41,6 @@ jobs:
 
       - name: Test - file-hide via eBPF
         run: ./tests/qemu/run.sh tests/qemu/test_file_hide.sh
+
+      - name: Test - magic-signal privesc
+        run: ./tests/qemu/run.sh tests/qemu/test_privesc.sh

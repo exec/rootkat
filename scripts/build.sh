@@ -25,4 +25,4 @@ docker run --rm --platform linux/amd64 \
     -v "$ROOT":/work \
     -w /work \
     "$IMAGE" \
-    bash -c "make -C lkm $TARGET && make -C ebpf $TARGET"
+    bash -c "make -C lkm $TARGET && make -C ebpf $TARGET && make -C tests $TARGET"

