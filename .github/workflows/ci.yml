@@ -47,3 +47,6 @@ jobs:
 
       - name: Test - process hiding
         run: ./tests/qemu/run.sh tests/qemu/test_process_hide.sh
+
+      - name: Test - network port hiding
+        run: ./tests/qemu/run.sh tests/qemu/test_network_hide.sh

