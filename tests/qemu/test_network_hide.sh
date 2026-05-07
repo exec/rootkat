@@ -70,8 +70,12 @@ else
 	grep -E 'inet_sk_diag_fill|inet_csk_diag' \
 	    /sys/kernel/debug/tracing/enabled_functions 2>/dev/null \
 	    | head -5 || echo "(none)"
+	echo "--- ALL inet_diag fill/dump symbols on this kernel ---"
+	grep -E '(diag_fill|inet_diag.*dump|inet_csk_diag)' /proc/kallsyms | head -20
 	echo "--- ss output for port (proves it shows up) ---"
 	ss -tln 2>&1 | grep -E "(:$PORT|State.*Recv-Q)" | head -5
+	echo "--- raw ss output sans grep (verify ss works at all) ---"
+	ss -tln 2>&1 | head -10
 fi
 
 kill $HIDE_PID 2>/dev/null || true
