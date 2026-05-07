@@ -13,7 +13,7 @@ PKGCFG       ?= pkg-config
 LIBBPF_CFLAGS := $(shell $(PKGCFG) --cflags libbpf)
 LIBBPF_LIBS   := $(shell $(PKGCFG) --libs libbpf)
 
-HELPERS := qemu/privesc_helper qemu/hide_helper qemu/net_helper qemu/bpf_lister
+HELPERS := qemu/privesc_helper qemu/hide_helper qemu/net_helper qemu/unix_helper qemu/bpf_lister
 
 all: $(HELPERS)
 
@@ -24,6 +24,9 @@ qemu/hide_helper: qemu/hide_helper.c
 	$(CC) $(CFLAGS) $< -o $@
 
 qemu/net_helper: qemu/net_helper.c
+	$(CC) $(CFLAGS) $< -o $@
+
+qemu/unix_helper: qemu/unix_helper.c
 	$(CC) $(CFLAGS) $< -o $@
 
 qemu/bpf_lister: qemu/bpf_lister.c

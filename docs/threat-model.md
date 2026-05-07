@@ -66,6 +66,39 @@ separate code path.
   `/sys/kernel/debug/tracing/enabled_functions` for a privileged
   defender.
 
+### AF_UNIX socket path hiding
+
+- `unix_seq_show` is hooked. When the iterator visits a socket whose
+  bound path contains a registered substring (default `.rootkat`), the
+  replacement returns 0 without writing the row — `/proc/net/unix` skips
+  the entry. Substring (not prefix or exact match) so a process can pick
+  any path containing the marker.
+- **Coverage:** `/proc/net/unix` is the surface for `lsof -U`, any
+  `/proc` walker, and most legacy socket inventories. A unix_helper
+  bound at `/tmp/.rootkat-secret.sock` is invisible; the same helper
+  bound at `/tmp/normal.sock` is visible. Direct `connect(2)` to the
+  hidden path still succeeds — we hide from enumeration only.
+- **Known gap (v0.7):** the matching `NETLINK_SOCK_DIAG` path used by
+  `ss -lx` is NOT hooked. The relevant builder (`sk_diag_fill` in
+  `net/unix/diag.c`) is `static`, and the symbol name collides with
+  identically-named statics in `inet_diag` and `raw_diag` — naive
+  resolution via `kallsyms_lookup_name` returns an arbitrary one. A
+  module-scoped resolver primitive (filter by `module_name_from_address`)
+  is the right fix and is on the v0.8 milestone. Until then, `ss -lx`
+  reveals hidden AF_UNIX listeners.
+- **Detection:**
+  - The mismatch between `ls /tmp/.rootkat-*.sock` (file present) and
+    `cat /proc/net/unix | grep .rootkat` (path absent) is a strong
+    signal — for filesystem-backed unix sockets the bind path always
+    leaves a node on disk.
+  - For abstract sockets, the bound name only lives in `/proc/net/unix`
+    and the netlink dump. Until v0.8, `ss -lx` is the most reliable
+    enumeration path for defenders.
+  - ftrace artifact on `unix_seq_show` is observable via
+    `/sys/kernel/debug/tracing/enabled_functions`.
+  - `bind(2)` from another process to the same filesystem path returns
+    EADDRINUSE.
+
 ### Audit log suppression
 
 - `audit_log_start` is hooked. When called from a hidden PID's task

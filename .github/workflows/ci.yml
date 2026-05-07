@@ -59,3 +59,6 @@ jobs:
 
       - name: Test - BPF program self-hide
         run: ./tests/qemu/run.sh tests/qemu/test_bpf_hide.sh
+
+      - name: Test - AF_UNIX socket path hiding
+        run: ./tests/qemu/run.sh tests/qemu/test_unix_hide.sh

