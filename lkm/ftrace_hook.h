@@ -36,6 +36,16 @@ struct rootkat_hook {
 };
 
 int rootkat_hook_install(struct rootkat_hook *h);
+
+/*
+ * Install a hook at a pre-resolved address, bypassing the candidates
+ * list. Used when the symbol needed module-scoped resolution
+ * (rootkat_lookup_in_module) and the caller already has the address.
+ * Returns 0 on success; on failure h->target is left at 0 so remove
+ * stays idempotent.
+ */
+int rootkat_hook_install_at(struct rootkat_hook *h, unsigned long addr);
+
 void rootkat_hook_remove(struct rootkat_hook *h);
 
 #endif

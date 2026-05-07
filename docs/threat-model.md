@@ -68,36 +68,45 @@ separate code path.
 
 ### AF_UNIX socket path hiding
 
-- `unix_seq_show` is hooked. When the iterator visits a socket whose
-  bound path contains a registered substring (default `.rootkat`), the
-  replacement returns 0 without writing the row — `/proc/net/unix` skips
-  the entry. Substring (not prefix or exact match) so a process can pick
-  any path containing the marker.
-- **Coverage:** `/proc/net/unix` is the surface for `lsof -U`, any
-  `/proc` walker, and most legacy socket inventories. A unix_helper
-  bound at `/tmp/.rootkat-secret.sock` is invisible; the same helper
-  bound at `/tmp/normal.sock` is visible. Direct `connect(2)` to the
-  hidden path still succeeds — we hide from enumeration only.
-- **Known gap (v0.7):** the matching `NETLINK_SOCK_DIAG` path used by
-  `ss -lx` is NOT hooked. The relevant builder (`sk_diag_fill` in
-  `net/unix/diag.c`) is `static`, and the symbol name collides with
-  identically-named statics in `inet_diag` and `raw_diag` — naive
-  resolution via `kallsyms_lookup_name` returns an arbitrary one. A
-  module-scoped resolver primitive (filter by `module_name_from_address`)
-  is the right fix and is on the v0.8 milestone. Until then, `ss -lx`
-  reveals hidden AF_UNIX listeners.
+Two hooks share one substring registry (default `.rootkat`):
+
+- `unix_seq_show` (in vmlinux): the per-row builder for
+  `/proc/net/unix`. When the iterator visits a socket whose bound path
+  contains a registered substring, the replacement returns 0 without
+  writing the row — `lsof -U`, any `/proc` walker, and legacy socket
+  inventories skip the entry.
+- `sk_diag_fill` in the `unix_diag` module: the per-socket builder
+  for the AF_UNIX `NETLINK_SOCK_DIAG` dump path used by `ss -lx`.
+  Same skip pattern — return 0 without writing. The symbol is
+  `static` in `net/unix/diag.c` and its name collides with
+  identically-named statics in `inet_diag` and `raw_diag`, so it's
+  resolved via `rootkat_lookup_in_module("sk_diag_fill", "unix_diag")`
+  (module-scoped walk over `kallsyms_on_each_symbol` filtered by
+  `__module_address(addr)->name`). `request_module("unix_diag")` is
+  triggered at install time because Ubuntu builds `CONFIG_UNIX_DIAG=m`.
+
+Substring (not prefix or exact match) so a process can pick any path
+containing the marker. The default `.rootkat` substring is added at
+module init.
+
+- **Coverage:** A unix_helper bound at `/tmp/.rootkat-secret.sock`
+  is invisible to both `cat /proc/net/unix` and `ss -lx`; the same
+  helper bound at `/tmp/normal.sock` is visible to both. Direct
+  `connect(2)` to the hidden path still succeeds — we hide from
+  enumeration only.
 - **Detection:**
-  - The mismatch between `ls /tmp/.rootkat-*.sock` (file present) and
-    `cat /proc/net/unix | grep .rootkat` (path absent) is a strong
-    signal — for filesystem-backed unix sockets the bind path always
-    leaves a node on disk.
-  - For abstract sockets, the bound name only lives in `/proc/net/unix`
-    and the netlink dump. Until v0.8, `ss -lx` is the most reliable
-    enumeration path for defenders.
-  - ftrace artifact on `unix_seq_show` is observable via
+  - For filesystem-backed unix sockets, the bind path always leaves
+    a node on disk. The mismatch between `ls /tmp/.rootkat-*.sock`
+    (file present) and the absence in BOTH `/proc/net/unix` and
+    `ss -lx` is a strong signal.
+  - For abstract sockets, the bound name only lives in
+    `/proc/net/unix` and the netlink dump — both hidden, so a
+    defender cannot enumerate them without ftrace introspection.
+  - ftrace artifacts on `unix_seq_show` and the unix_diag-scoped
+    `sk_diag_fill` are observable via
     `/sys/kernel/debug/tracing/enabled_functions`.
-  - `bind(2)` from another process to the same filesystem path returns
-    EADDRINUSE.
+  - `bind(2)` from another process to the same filesystem path
+    returns EADDRINUSE.
 
 ### Audit log suppression
 

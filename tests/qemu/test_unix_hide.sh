@@ -1,14 +1,14 @@
 #!/usr/bin/env bash
 # Asserts: an AF_UNIX listener bound to a path containing the rootkat
-# stealth marker (".rootkat") disappears from /proc/net/unix, while a
-# normal listener stays visible. After unload, the hidden listener is
-# visible again.
+# stealth marker (".rootkat") disappears from /proc/net/unix AND from
+# `ss -lx` (NETLINK_SOCK_DIAG path), while a normal listener stays
+# visible. After unload, the hidden listener is visible again.
 #
-# /proc/net/unix is the dominant detection surface — used by lsof -U,
-# any /proc walker, and older socket inventories. The NETLINK_SOCK_DIAG
-# (`ss -lx`) path is NOT covered in v0.7 — see docs/threat-model.md
-# for the explicit gap. We don't assert against it here because the
-# behavior is documented-as-broken until v0.8.
+# /proc/net/unix is hooked at unix_seq_show; the netlink path is
+# hooked at unix_diag's static sk_diag_fill, resolved via the
+# module-scoped kallsyms resolver primitive (kallsyms_on_each_symbol
+# + __module_address) so the same-named static in inet_diag /
+# raw_diag doesn't get confused with it.
 set -u
 cd /root/rootkat
 . tests/qemu/lib.sh
@@ -40,6 +40,17 @@ HIDDEN_PID=$!
 sleep 0.2
 assert_nonzero "hidden: rootkat path NOT in /proc/net/unix" \
 	bash -c "$(declare -f unix_paths_in_proc); unix_paths_in_proc | grep -qF $HIDDEN_PATH"
+
+# Netlink path: ss -lx walks NETLINK_SOCK_DIAG → unix_diag's static
+# sk_diag_fill. Our hook (resolved via module-scoped kallsyms lookup
+# to avoid the inet_diag/raw_diag collision) skips the matching socket.
+assert_nonzero "hidden: ss -lx omits rootkat path (netlink hook)" \
+	bash -c "ss -lx | grep -qF $HIDDEN_PATH"
+
+# Sanity: ss -lx still shows the visible socket — we only filter the
+# matching path, not all AF_UNIX entries.
+assert_zero "ss -lx still shows visible socket" \
+	bash -c "ss -lx | grep -qF $VISIBLE_PATH"
 
 # Direct connect must still work — we hide from enumeration, not from
 # anything that already knows the path. Bash redirection doesn't speak
