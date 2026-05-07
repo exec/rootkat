@@ -23,9 +23,16 @@ Repo: https://github.com/exec/rootkat
 All builds run in a Docker container (works on macOS / non-Linux hosts):
 
 ```
-./scripts/build.sh                       # build LKM + eBPF + Rust + helpers
-BUILD_IMAGE_FORCE=1 ./scripts/build.sh   # force container rebuild (Dockerfile churn)
+./scripts/build.sh                              # default: Ubuntu 26.04 / kernel 7.0
+UBUNTU_VERSION=24.04 ./scripts/build.sh         # Ubuntu 24.04 LTS / kernel 6.x
+BUILD_IMAGE_FORCE=1 ./scripts/build.sh          # force container rebuild
 ```
+
+The container image is tagged per Ubuntu version
+(`rootkat-build:ubuntu-${UBUNTU_VERSION}`) so the matrix entries don't
+stomp each other. Kernel headers come from `linux-headers-generic` for
+that release; the Dockerfile's Rust splice only fires when a matching
+`linux-lib-rust-*-generic` package exists (currently 26.04).
 
 QEMU tests (Linux host w/ KVM, or in CI):
 
@@ -152,6 +159,13 @@ Choosing high real-time signals avoids stomping on common app signals.
   actually pass. When following CI status, check `gh run list` and
   `gh run view <id>` for ground truth — and watch in_progress runs
   too, not just `--limit 1`.
+- **kallsyms suffix matches.** When resolving via
+  `rootkat_lookup_in_module`, prefer EXACT names over `.suffix`
+  variants (`.cold`, `.constprop.0`, `.isra.0`). The `.cold` copy is a
+  relocated error-path stub at an unaligned offset; ftrace_set_filter_ip
+  fails -EINVAL on it. The resolver in `lkm/kallsyms.c` walks to
+  completion and only falls back to the suffixed match if no exact
+  match exists.
 
 ## Design decisions to respect
 
@@ -191,8 +205,10 @@ subagent-driven development for big tasks. Default to:
 
 ## Current status (2026-05-08)
 
-v0.9 — 17 features verified end-to-end on real Linux 7.0 in CI (audit
-hook is code-only / not CI-asserted). 11/11 QEMU tests pass.
+v0.10 — 17 features verified end-to-end on Linux 7.0 AND Linux 6.x in
+CI (audit hook is code-only / not CI-asserted). 11/11 tests pass on
+26.04/7.0; 10/11 on 24.04/6.x (Rust LKM test skipped — no lib-rust
+package on that release).
 
 Two control surfaces with parity now: the kill(2) magic-signal hijack
 and the io_uring covert channel (IORING_OP_NOP SQE with magic
@@ -208,6 +224,6 @@ Used to pin static-named symbols that collide across modules
 (`sk_diag_fill` in unix_diag/inet_diag/raw_diag) and to resolve static
 vmlinux symbols (`io_issue_sqe`).
 
-Backlog: multi-kernel CI matrix, port real C components to Rust,
-alcapwn C2 integration (deferred). See `README.md` "What's NOT here
-yet" for the canonical list.
+Backlog: port real C components to Rust, alcapwn C2 integration
+(deferred). See `README.md` "What's NOT here yet" for the canonical
+list.

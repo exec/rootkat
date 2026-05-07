@@ -6,11 +6,22 @@ on:
 
 jobs:
   build-and-test:
-    # ubuntu-26.04 isn't a valid GH Actions label yet (Apr 2026 release,
-    # runners lag). 24.04 has KVM, BTF, modern qemu, and BuildKit — the
-    # kernel-7.0 testing all happens inside the Docker container and the
-    # QEMU VM, so the runner OS doesn't have to be 26.04.
+    # GitHub Actions doesn't yet provide an ubuntu-26.04 runner label, so
+    # the runner OS is fixed at 24.04 — both matrix entries do their
+    # actual kernel work inside the Docker build container and the
+    # QEMU VM, which DO use the matrix's ubuntu_version.
     runs-on: ubuntu-24.04
+    strategy:
+      # Don't abort the whole matrix when one entry fails; we want to
+      # see whether the failure is kernel-specific or universal.
+      fail-fast: false
+      matrix:
+        include:
+          - { ubuntu_version: "26.04", kernel: "7.0",  rust: "yes" }
+          - { ubuntu_version: "24.04", kernel: "6.x",  rust: "no"  }
+    name: "Ubuntu ${{ matrix.ubuntu_version }} / kernel ${{ matrix.kernel }}"
+    env:
+      UBUNTU_VERSION: ${{ matrix.ubuntu_version }}
     steps:
       - uses: actions/checkout@v4
 
@@ -30,7 +41,7 @@ jobs:
       - name: Build (Docker)
         run: ./scripts/build.sh
 
-      - name: Fetch Ubuntu 26.04 cloud image
+      - name: Fetch Ubuntu ${{ matrix.ubuntu_version }} cloud image
         run: ./scripts/fetch_test_image.sh
 
       - name: Test - load/unload baseline
@@ -54,7 +65,7 @@ jobs:
       - name: Test - persistence (auto-load on reboot)
         run: ./tests/qemu/run.sh tests/qemu/test_persistence.sh
 
-      - name: Test - Rust LKM (kernel 7.0 stable Rust)
+      - name: Test - Rust LKM
         run: ./tests/qemu/run.sh tests/qemu/test_rust_module.sh
 
       - name: Test - BPF program self-hide

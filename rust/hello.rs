@@ -21,7 +21,7 @@ struct HelloModule;
 
 impl kernel::Module for HelloModule {
 	fn init(_module: &'static ThisModule) -> Result<Self> {
-		pr_info!("hello from rust on linux 7.0\n");
+		pr_info!("rootkat rust LKM init\n");
 		Ok(HelloModule)
 	}
 }

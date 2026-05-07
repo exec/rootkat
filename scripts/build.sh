@@ -1,14 +1,21 @@
 #!/usr/bin/env bash
 # Build everything inside the rootkat Docker build container.
+#
+#   $UBUNTU_VERSION (env, default 26.04) selects the build env's Ubuntu
+#   release. The container's kernel headers come from that release, so
+#   the LKM ABI matches the QEMU cloud image at the same UBUNTU_VERSION.
+#   $BUILD_IMAGE_FORCE=1 forces a container rebuild.
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
-IMAGE="rootkat-build:latest"
+UBUNTU_VERSION="${UBUNTU_VERSION:-26.04}"
+IMAGE="rootkat-build:ubuntu-${UBUNTU_VERSION}"
 
 if [ "${BUILD_IMAGE_FORCE:-0}" = "1" ] || ! docker image inspect "$IMAGE" >/dev/null 2>&1; then
     echo "[build] Building Docker image $IMAGE..."
     # buildx + --load is required so Colima honors --platform.
     docker buildx build --platform linux/amd64 --load \
+        --build-arg "UBUNTU_VERSION=${UBUNTU_VERSION}" \
         -t "$IMAGE" "$ROOT/build"
 fi
 

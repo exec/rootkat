@@ -7,7 +7,8 @@ documentation alongside.
 
 ## Status
 
-v0.9 — rootkit features verified end-to-end against Linux 7.0 in CI:
+v0.10 — rootkit features verified end-to-end against multiple kernels
+in CI (matrix: Ubuntu 26.04 / kernel 7.0 + Ubuntu 24.04 LTS / kernel 6.x):
 
 | Feature                     | Mechanism                                     | Trigger                       |
 |-----------------------------|-----------------------------------------------|-------------------------------|
@@ -54,11 +55,19 @@ inside a real kernel-7.0 QEMU VM in CI.
 
 All builds run in a Docker container (works on macOS / non-Linux hosts):
 
-    ./scripts/build.sh
+    ./scripts/build.sh                              # Ubuntu 26.04 / kernel 7.0 (default)
+    UBUNTU_VERSION=24.04 ./scripts/build.sh         # Ubuntu 24.04 LTS / kernel 6.x
 
 Requires Docker + buildx. Colima users: `brew install docker-buildx` once.
-The first invocation builds the container (~2 min); subsequent runs reuse it.
-Force a rebuild with `BUILD_IMAGE_FORCE=1 ./scripts/build.sh`.
+The first invocation builds the container per Ubuntu version (~2 min);
+subsequent runs reuse the matching image. Force a rebuild with
+`BUILD_IMAGE_FORCE=1 ./scripts/build.sh`.
+
+**Multi-kernel matrix.** CI exercises the full suite against both
+Ubuntu 26.04 / kernel 7.0 and Ubuntu 24.04 LTS / kernel 6.x. The Rust
+LKM is built only when the matching kernel ships a `linux-lib-rust-*`
+package (currently 26.04 only); on kernels without it, `rust/Makefile`
+no-ops and `test_rust_module.sh` skips itself cleanly.
 
 ## Testing
 
@@ -88,7 +97,6 @@ reads the threat model can build a detector for rootkat in an afternoon.
 
 ## What's NOT here yet (v2 backlog)
 
-- Multi-kernel CI matrix (linux-next bumps)
 - Port real rootkit components from C to Rust
 - C2 integration
 
