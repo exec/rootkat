@@ -47,10 +47,12 @@ together cover both detection paths and both families:
   `request_module("inet_diag")` from our install path to trigger
   autoload before resolving the symbol.
 
-UDP and Unix sockets remain out of scope; UDP would need
-`udp4_seq_show` + `udp6_seq_show` hooks plus possibly a UDP-specific
-diag fill. Only local-port matching is implemented; remote-port-only
-filtering would need a separate code path.
+UDP /proc/net/udp{,6} is also covered (separate hook pair on
+`udp{4,6}_seq_show`, sharing the same hidden_ports list). Unix sockets
+remain out of scope. The UDP netlink path (ss -ulnp via NETLINK_SOCK_DIAG
+with IPPROTO_UDP) is not yet hooked; v3 milestone. Only local-port
+matching is implemented; remote-port-only filtering would need a
+separate code path.
 
 **Detection notes:**
 - The hidden socket still consumes a port — `bind(2)` from another
