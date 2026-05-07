@@ -39,7 +39,7 @@ modern stealth techniques and documents how each is detected.
 - The hooked LSM is observable via `bpftool perf list`.
 - **Boot requirement:** the BPF LSM hook only fires when `bpf` is present in
   the kernel's boot-time `lsm=` list. Ubuntu 26.04's default cmdline does
-  not include it; add `lsm=lockdown,capability,landlock,yama,apparmor,bpf`
-  to GRUB_CMDLINE_LINUX. CI currently soft-skips this test on the default
-  cmdline; a follow-up milestone will drive the GRUB rewrite from
-  cloud-init in the QEMU harness for end-to-end coverage.
+  not include it. The QEMU test harness automates this by writing
+  `/etc/default/grub.d/99-bpf-lsm.cfg`, running `update-grub`, and
+  rebooting before the test runs (adds ~30s on first boot per test).
+  Production deployers must do the equivalent themselves.
