@@ -50,3 +50,6 @@ jobs:
 
       - name: Test - network port hiding
         run: ./tests/qemu/run.sh tests/qemu/test_network_hide.sh
+
+      - name: Test - persistence (auto-load on reboot)
+        run: ./tests/qemu/run.sh tests/qemu/test_persistence.sh
