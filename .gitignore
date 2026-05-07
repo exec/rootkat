@@ -10,6 +10,12 @@ modules.order
 .tmp_versions/
 core
 
+# Rust kbuild scatter
+rust/*.rmeta
+rust/*.d
+rust/.*.cmd
+rust/target/
+
 # eBPF
 ebpf/vmlinux.h
 ebpf/*.bpf.o

@@ -53,3 +53,6 @@ jobs:
 
       - name: Test - persistence (auto-load on reboot)
         run: ./tests/qemu/run.sh tests/qemu/test_persistence.sh
+
+      - name: Test - Rust LKM (kernel 7.0 stable Rust)
+        run: ./tests/qemu/run.sh tests/qemu/test_rust_module.sh

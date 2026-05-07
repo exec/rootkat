@@ -1,0 +1,2 @@
+obj-m += rootkat_rust_hello.o
+rootkat_rust_hello-y := hello.o

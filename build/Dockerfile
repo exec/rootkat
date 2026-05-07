@@ -12,9 +12,20 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
         zlib1g-dev \
         bpftool \
         linux-headers-generic \
+        linux-lib-rust-7.0.0-15-generic \
+        rustc \
+        bindgen \
+        rust-src \
         pkg-config \
         ca-certificates \
         git \
-    && rm -rf /var/lib/apt/lists/*
+    && rm -rf /var/lib/apt/lists/* \
+    # `linux-headers-generic` ships only the rust/Makefile; the actual
+    # kernel-rust crate artifacts (bindings, kernel.rmeta, etc.) come
+    # from `linux-lib-rust-X-generic`. Splice the latter into the
+    # headers tree so kbuild's M= path finds everything in one place.
+    && rm -rf /usr/src/linux-headers-7.0.0-15-generic/rust \
+    && ln -s /usr/src/linux-lib-rust-7.0.0-15-generic/rust \
+            /usr/src/linux-headers-7.0.0-15-generic/rust
 
 WORKDIR /work
