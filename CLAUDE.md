@@ -191,10 +191,12 @@ subagent-driven development for big tasks. Default to:
 
 ## Current status (2026-05-07)
 
-v0.6 — 14 features verified end-to-end on real Linux 7.0 in CI (audit
-hook is code-only / not CI-asserted). 9/9 QEMU tests pass. 72 commits
-on `main`.
+v0.7 — 15 features verified end-to-end on real Linux 7.0 in CI (audit
+hook is code-only / not CI-asserted). 10/10 QEMU tests pass.
 
-Backlog: Unix-socket hiding (path-based), io_uring covert channel,
-multi-kernel CI matrix, port real C component to Rust. See
-`README.md` "What's NOT here yet" for the canonical list.
+Backlog: AF_UNIX hide via `NETLINK_SOCK_DIAG` (`ss -lx`) — needs a
+module-scoped kallsyms resolver primitive to disambiguate the static
+`sk_diag_fill` from same-named statics in `inet_diag`/`raw_diag`.
+Then: io_uring covert channel, multi-kernel CI matrix, port real C
+components to Rust. See `README.md` "What's NOT here yet" for the
+canonical list.
