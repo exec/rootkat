@@ -126,6 +126,12 @@ UDP_HIDE_PID=$!
 sleep 0.2
 assert_nonzero "udp hidden: /proc/net/udp omits port" \
 	bash -c "$(declare -f udp_ports); udp_ports | grep -qx $UDP_PORT"
+
+# inet_sk_diag_fill is shared across protocols — the same hook that
+# closes the TCP/ss bypass should also close the UDP/ss bypass.
+assert_nonzero "udp hidden: ss -uln does NOT show port (netlink hook)" \
+	bash -c "ss -uln | grep -q ':$UDP_PORT '"
+
 kill $UDP_HIDE_PID 2>/dev/null || true
 wait $UDP_HIDE_PID 2>/dev/null || true
 exec 3<&-

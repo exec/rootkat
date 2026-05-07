@@ -1,11 +1,12 @@
 #!/usr/bin/env bash
-# Boot QEMU with the Ubuntu 26.04 image, copy the rootkat tree in via 9p,
+# Boot QEMU with an Ubuntu cloud image, copy the rootkat tree in via 9p,
 # run the named test script, return its exit code.
+#   $UBUNTU_VERSION (env, default 26.04) selects which image to boot.
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
 TEST_SCRIPT="${1:?usage: run.sh tests/qemu/test_*.sh}"
-IMG="$ROOT/tests/qemu/images/ubuntu-26.04.img"
+UBUNTU_VERSION="${UBUNTU_VERSION:-26.04}"
 TIMEOUT_SECS="${TIMEOUT_SECS:-420}"
 
 # Preflight: required tools and KVM access. Fail loudly with a clear message
@@ -17,9 +18,7 @@ done
 [ -r /dev/kvm ] && [ -w /dev/kvm ] \
     || { echo "no /dev/kvm access (KVM-capable Linux host required)" >&2; exit 2; }
 
-if [ ! -f "$IMG" ]; then
-    "$ROOT/scripts/fetch_test_image.sh"
-fi
+IMG="$("$ROOT/scripts/fetch_test_image.sh" "$UBUNTU_VERSION")"
 
 # Single trap that cleans every tmpdir we make. Multiple `trap ... EXIT`
 # statements would each REPLACE the previous, leaking earlier paths.
