@@ -1,37 +1,19 @@
 #!/usr/bin/env bash
 # Asserts: with the eBPF loader running, /tmp/secret.txt is invisible.
 #
-# Requires: `bpf` in the kernel's lsm= boot parameter. Ubuntu 26.04's
-# default cmdline is `lockdown,capability,landlock,yama,apparmor,ima,evm`
-# (no bpf), so BPF LSM hooks attach but never fire. Skip this test on
-# such kernels — the asserted invariant is unreachable until the boot
-# parameter is changed.
-#
-# TODO(rootkat): drive the kernel cmdline change from cloud-init in
-# run.sh (write /etc/default/grub.d/99-bpf-lsm.cfg, update-grub, reboot).
-# Until then, this test is a no-op on the default Ubuntu image and the
-# real validation lives in manual runs against a kernel with lsm=...,bpf.
+# Requires `bpf` in the kernel's lsm= cmdline. The QEMU harness drives a
+# GRUB drop-in + reboot in cloud-init so this is true by the time the
+# test runs. If we ever boot without it (manual runs) the assertions
+# below will fail loudly rather than silently — that's intentional.
 set -u
 cd /root/rootkat
 . tests/qemu/lib.sh
 
-if ! grep -q '\bbpf\b' /sys/kernel/security/lsm 2>/dev/null; then
-	echo "SKIP: bpf not in /sys/kernel/security/lsm"
-	echo "  current: $(cat /sys/kernel/security/lsm 2>/dev/null || echo MISSING)"
-	echo "  fix: add 'bpf' to lsm= kernel cmdline (TODO in test header)"
-	# Sanity-check that the loader at least builds and attaches cleanly
-	# even if the hook can't fire — catches regressions in libbpf use.
-	echo "secret" > /tmp/secret.txt
-	cd ebpf
-	./loader secret.txt > /tmp/loader.log 2>&1 &
-	LOADER_PID=$!
-	sleep 2
-	cd ..
-	assert_zero    "loader still attached"  kill -0 $LOADER_PID
-	kill -INT $LOADER_PID 2>/dev/null || true
-	wait $LOADER_PID 2>/dev/null || true
-	report
-	exit
+if ! grep -qw bpf /sys/kernel/security/lsm 2>/dev/null; then
+	echo "FAIL: bpf not in /sys/kernel/security/lsm — harness should have"
+	echo "      rewritten GRUB and rebooted before running this test."
+	echo "      current: $(cat /sys/kernel/security/lsm 2>/dev/null || echo MISSING)"
+	exit 1
 fi
 
 echo "secret" > /tmp/secret.txt

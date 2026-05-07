@@ -6,7 +6,7 @@ set -euo pipefail
 ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
 TEST_SCRIPT="${1:?usage: run.sh tests/qemu/test_*.sh}"
 IMG="$ROOT/tests/qemu/images/ubuntu-26.04.img"
-TIMEOUT_SECS="${TIMEOUT_SECS:-300}"
+TIMEOUT_SECS="${TIMEOUT_SECS:-420}"
 
 # Preflight: required tools and KVM access. Fail loudly with a clear message
 # rather than letting QEMU/cloud-localds print walls of opaque error.
@@ -29,18 +29,52 @@ trap 'rm -rf "${CLEANUP[@]}"' EXIT
 CLOUD_INIT_DIR="$(mktemp -d)"; CLEANUP+=("$CLOUD_INIT_DIR")
 RESULT_DIR="$(mktemp -d)";     CLEANUP+=("$RESULT_DIR")
 
-# QEMU shares the host rootkat tree at /root/rootkat via virtio-9p.
-# cloud-init runs the test script on first boot and writes log + rc to
-# the second 9p mount; the host reads rc and exits with that status.
+# QEMU shares the host rootkat tree at /root/rootkat via virtio-9p, and
+# a result tmpdir at /mnt/result. cloud-init writes a runtest script + a
+# systemd one-shot service + a GRUB drop-in that adds `bpf` to lsm=. On
+# first boot, runcmd checks whether bpf is already in /sys/kernel/security/lsm:
+#   - if yes: run the test directly, write rc, poweroff.
+#   - if no:  update-grub + enable rootkat-test.service + reboot. On the
+#            second boot the kernel has lsm=...,bpf and the systemd unit
+#            runs the test after multi-user.target. Adds ~30s on first run.
 cat > "$CLOUD_INIT_DIR/user-data" <<EOF
 #cloud-config
 network: {config: disabled}
+write_files:
+  - path: /etc/default/grub.d/99-bpf-lsm.cfg
+    content: |
+      GRUB_CMDLINE_LINUX="\$GRUB_CMDLINE_LINUX lsm=lockdown,capability,landlock,yama,apparmor,bpf"
+  - path: /usr/local/bin/rootkat-runtest.sh
+    permissions: '0755'
+    content: |
+      #!/bin/bash
+      set -u
+      mkdir -p /root/rootkat /mnt/result
+      mount -t 9p -o trans=virtio,version=9p2000.L rootkat /root/rootkat 2>/dev/null || true
+      mount -t 9p -o trans=virtio,version=9p2000.L result /mnt/result 2>/dev/null || true
+      bash /root/rootkat/$TEST_SCRIPT > /mnt/result/log 2>&1
+      echo \$? > /mnt/result/rc
+      poweroff
+  - path: /etc/systemd/system/rootkat-test.service
+    content: |
+      [Unit]
+      Description=rootkat test runner
+      After=multi-user.target
+      Wants=multi-user.target
+      [Service]
+      Type=oneshot
+      ExecStart=/usr/local/bin/rootkat-runtest.sh
+      [Install]
+      WantedBy=multi-user.target
 runcmd:
-  - mkdir -p /root/rootkat /mnt/result
-  - mount -t 9p -o trans=virtio,version=9p2000.L rootkat /root/rootkat
-  - mount -t 9p -o trans=virtio,version=9p2000.L result /mnt/result
-  - bash /root/rootkat/$TEST_SCRIPT > /mnt/result/log 2>&1; echo \$? > /mnt/result/rc
-  - poweroff
+  - |
+    if grep -qw bpf /sys/kernel/security/lsm; then
+        /usr/local/bin/rootkat-runtest.sh
+    else
+        update-grub
+        systemctl enable rootkat-test.service
+        reboot
+    fi
 EOF
 echo "instance-id: rootkat-test" > "$CLOUD_INIT_DIR/meta-data"
 
@@ -58,7 +92,7 @@ timeout "$TIMEOUT_SECS" qemu-system-x86_64 \
     -device virtio-9p-pci,fsdev=rootkat,mount_tag=rootkat \
     -fsdev local,id=result,path="$RESULT_DIR",security_model=none \
     -device virtio-9p-pci,fsdev=result,mount_tag=result \
-    -nographic -serial mon:stdio -no-reboot \
+    -nographic -serial mon:stdio \
     || true
 
 [ -s "$RESULT_DIR/log" ] && cat "$RESULT_DIR/log"
