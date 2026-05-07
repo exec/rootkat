@@ -23,7 +23,14 @@ unix_paths_in_proc() {
 	awk 'NR>1 && NF>=8 {for (i=8;i<=NF;i++) printf "%s ", $i; print ""}' /proc/net/unix
 }
 
+dmesg -c >/dev/null 2>&1 || true
 assert_zero "module loads" insmod lkm/rootkat.ko
+
+# Dump rootkat init logs so diag-hook resolution failures are visible
+# in CI output when an assertion below fires unexpectedly.
+echo "--- rootkat init log ---"
+dmesg | grep -i 'rootkat\|kallsyms' | tail -40 || true
+echo "------------------------"
 
 # --- Visible path: appears in /proc/net/unix ---------------------------
 exec 3< <(tests/qemu/unix_helper $VISIBLE_PATH)
