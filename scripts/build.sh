@@ -9,13 +9,15 @@ set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 UBUNTU_VERSION="${UBUNTU_VERSION:-26.04}"
-IMAGE="rootkat-build:ubuntu-${UBUNTU_VERSION}"
+KERNEL_RUST="${KERNEL_RUST:-enabled}"
+IMAGE="rootkat-build:ubuntu-${UBUNTU_VERSION}-rust-${KERNEL_RUST}"
 
 if [ "${BUILD_IMAGE_FORCE:-0}" = "1" ] || ! docker image inspect "$IMAGE" >/dev/null 2>&1; then
     echo "[build] Building Docker image $IMAGE..."
     # buildx + --load is required so Colima honors --platform.
     docker buildx build --platform linux/amd64 --load \
         --build-arg "UBUNTU_VERSION=${UBUNTU_VERSION}" \
+        --build-arg "KERNEL_RUST=${KERNEL_RUST}" \
         -t "$IMAGE" "$ROOT/build"
 fi
 

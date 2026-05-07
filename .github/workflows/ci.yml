@@ -17,11 +17,12 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - { ubuntu_version: "26.04", kernel: "7.0",  rust: "yes" }
-          - { ubuntu_version: "24.04", kernel: "6.x",  rust: "no"  }
+          - { ubuntu_version: "26.04", kernel: "7.0",  kernel_rust: "enabled"  }
+          - { ubuntu_version: "24.04", kernel: "6.x",  kernel_rust: "disabled" }
     name: "Ubuntu ${{ matrix.ubuntu_version }} / kernel ${{ matrix.kernel }}"
     env:
       UBUNTU_VERSION: ${{ matrix.ubuntu_version }}
+      KERNEL_RUST: ${{ matrix.kernel_rust }}
     steps:
       - uses: actions/checkout@v4
 

@@ -7,6 +7,12 @@ FROM --platform=linux/amd64 ubuntu:${UBUNTU_VERSION}
 
 ENV DEBIAN_FRONTEND=noninteractive
 
+# enabled/disabled — controls whether to install linux-lib-rust-*-generic
+# and splice it into the headers tree. Some older Ubuntus do ship the
+# package but with a kernel-Rust API that's incompatible with our
+# hello.rs (e.g. 6.8 doesn't auto-define __LOG_PREFIX in module!{}).
+ARG KERNEL_RUST=enabled
+
 # Base toolchain + kernel-build prerequisites. linux-headers-generic
 # pulls in the right ABI version for the target Ubuntu release.
 # bpftool packaging differs across releases:
@@ -42,27 +48,33 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
  && /usr/local/bin/bpftool version \
  && rm -rf /var/lib/apt/lists/*
 
-# Kernel-Rust support: only some Ubuntu releases ship the
-# linux-lib-rust-X-generic package. We resolve the kernel ABI from the
-# headers package we just installed, then try to install the matching
-# lib-rust package. If unavailable (e.g. Ubuntu 24.04 / 6.8), we
-# silently continue — rust/Makefile detects the absence and no-ops, and
-# tests/qemu/test_rust_module.sh skips itself cleanly.
-RUN apt-get update \
- && KABI=$(ls /usr/src 2>/dev/null \
-            | grep -oE '^linux-headers-[0-9][0-9.A-Za-z-]+-generic$' \
-            | head -n1 \
-            | sed -e 's/^linux-headers-//' -e 's/-generic$//') \
- && echo "[rootkat] resolved kernel ABI: ${KABI}" \
- && if apt-get install -y --no-install-recommends \
-        "linux-lib-rust-${KABI}-generic" rustc bindgen rust-src; then \
-        rm -rf "/usr/src/linux-headers-${KABI}-generic/rust" \
-     && ln -s "/usr/src/linux-lib-rust-${KABI}-generic/rust" \
-              "/usr/src/linux-headers-${KABI}-generic/rust" \
-     && echo "[rootkat] kernel-Rust support: ENABLED" ; \
+# Kernel-Rust support: gated by KERNEL_RUST build-arg. When `enabled`,
+# resolve the kernel ABI from the headers we just installed, install the
+# matching linux-lib-rust-${KABI}-generic, and splice its rust/ tree
+# into the headers. On Ubuntus that don't ship the package at all the
+# install fails and we continue with rust support disabled (rust/Makefile
+# detects via kernel.o and no-ops). When KERNEL_RUST=disabled we skip
+# entirely — used for kernels where the package exists but its
+# kernel-Rust API is incompatible with our hello.rs (e.g. 24.04/6.8).
+RUN if [ "$KERNEL_RUST" != "enabled" ]; then \
+        echo "[rootkat] kernel-Rust support: explicitly disabled (KERNEL_RUST=$KERNEL_RUST)"; \
     else \
-        echo "[rootkat] kernel-Rust support: not available for ABI ${KABI}" ; \
-    fi \
- && rm -rf /var/lib/apt/lists/*
+        apt-get update \
+     && KABI=$(ls /usr/src 2>/dev/null \
+                | grep -oE '^linux-headers-[0-9][0-9.A-Za-z-]+-generic$' \
+                | head -n1 \
+                | sed -e 's/^linux-headers-//' -e 's/-generic$//') \
+     && echo "[rootkat] resolved kernel ABI: ${KABI}" \
+     && if apt-get install -y --no-install-recommends \
+            "linux-lib-rust-${KABI}-generic" rustc bindgen rust-src; then \
+            rm -rf "/usr/src/linux-headers-${KABI}-generic/rust" \
+         && ln -s "/usr/src/linux-lib-rust-${KABI}-generic/rust" \
+                  "/usr/src/linux-headers-${KABI}-generic/rust" \
+         && echo "[rootkat] kernel-Rust support: ENABLED" ; \
+        else \
+            echo "[rootkat] kernel-Rust support: package not available for ABI ${KABI}" ; \
+        fi \
+     && rm -rf /var/lib/apt/lists/*; \
+    fi
 
 WORKDIR /work
