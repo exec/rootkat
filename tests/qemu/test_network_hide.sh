@@ -69,4 +69,36 @@ kill $POST_PID 2>/dev/null || true
 wait $POST_PID 2>/dev/null || true
 exec 3<&-
 
+
+# --- IPv6: same machinery, different seq_show target -------------------
+V6_PORT=12346
+tcp6_ports() {
+	awk 'NR>1{split($2,a,":"); printf "%d\n", strtonum("0x" a[length(a)])}' /proc/net/tcp6
+}
+
+assert_zero "v6: module loads"           insmod lkm/rootkat.ko
+
+exec 3< <(tests/qemu/net_helper $V6_PORT v6)
+read -r LINE <&3
+V6_BASE_PID=$!
+sleep 0.2
+assert_zero "v6 baseline: tcp6 has port" \
+	bash -c "$(declare -f tcp6_ports); tcp6_ports | grep -qx $V6_PORT"
+kill $V6_BASE_PID 2>/dev/null || true
+wait $V6_BASE_PID 2>/dev/null || true
+exec 3<&-
+sleep 0.3
+
+exec 3< <(tests/qemu/net_helper $V6_PORT hide v6)
+read -r LINE <&3
+V6_HIDE_PID=$!
+sleep 0.2
+assert_nonzero "v6 hidden: tcp6 omits port" \
+	bash -c "$(declare -f tcp6_ports); tcp6_ports | grep -qx $V6_PORT"
+kill $V6_HIDE_PID 2>/dev/null || true
+wait $V6_HIDE_PID 2>/dev/null || true
+exec 3<&-
+
+assert_zero "v6: module unloads" rmmod rootkat
+
 report
