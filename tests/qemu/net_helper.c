@@ -1,11 +1,12 @@
 // SPDX-License-Identifier: MIT
 /*
- * Helper: bind a TCP port and listen. argv[2..] flags:
+ * Helper: bind a TCP port and listen, OR a UDP socket. argv[2..] flags:
  *   "hide"  send the rootkat hide-port magic signal after binding
  *   "v6"    bind on AF_INET6 (default is AF_INET)
- * Either order; both flags can be combined. Without args, just listens.
+ *   "udp"   bind a UDP socket (default is TCP listener)
+ * Any combination, any order. Without flags, plain TCP listener.
  *
- * Output: prints "ready" to stdout once listening (and after hide if
+ * Output: prints "ready" to stdout once bound (and after hide if
  * applicable), so the test can synchronize. Then pauses until killed.
  */
 #define _GNU_SOURCE
@@ -25,17 +26,19 @@
 int main(int argc, char **argv)
 {
 	if (argc < 2) {
-		fprintf(stderr, "usage: %s <port> [hide] [v6]\n", argv[0]);
+		fprintf(stderr, "usage: %s <port> [hide] [v6] [udp]\n", argv[0]);
 		return 1;
 	}
 	int port = atoi(argv[1]);
-	int hide = 0, v6 = 0;
+	int hide = 0, v6 = 0, udp = 0;
 	for (int i = 2; i < argc; i++) {
 		if (!strcmp(argv[i], "hide")) hide = 1;
 		else if (!strcmp(argv[i], "v6")) v6 = 1;
+		else if (!strcmp(argv[i], "udp")) udp = 1;
 	}
 
-	int s = socket(v6 ? AF_INET6 : AF_INET, SOCK_STREAM, 0);
+	int s = socket(v6 ? AF_INET6 : AF_INET,
+	               udp ? SOCK_DGRAM : SOCK_STREAM, 0);
 	if (s < 0) { perror("socket"); return 1; }
 	int one = 1;
 	setsockopt(s, SOL_SOCKET, SO_REUSEADDR, &one, sizeof(one));
@@ -60,11 +63,12 @@ int main(int argc, char **argv)
 		rc = bind(s, (struct sockaddr *)&a4, sizeof(a4));
 	}
 	if (rc < 0) {
-		fprintf(stderr, "bind(%d, %s): %s\n",
-		        port, v6 ? "v6" : "v4", strerror(errno));
+		fprintf(stderr, "bind(%d, %s, %s): %s\n",
+		        port, v6 ? "v6" : "v4",
+		        udp ? "udp" : "tcp", strerror(errno));
 		return 1;
 	}
-	if (listen(s, 1) < 0) {
+	if (!udp && listen(s, 1) < 0) {
 		fprintf(stderr, "listen: %s\n", strerror(errno));
 		return 1;
 	}

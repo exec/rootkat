@@ -101,4 +101,35 @@ exec 3<&-
 
 assert_zero "v6: module unloads" rmmod rootkat
 
+# --- UDP: same magic signal hides the port across UDP too ---------------
+UDP_PORT=12347
+udp_ports() {
+	awk 'NR>1{split($2,a,":"); printf "%d\n", strtonum("0x" a[length(a)])}' /proc/net/udp
+}
+
+assert_zero "udp: module loads"           insmod lkm/rootkat.ko
+
+exec 3< <(tests/qemu/net_helper $UDP_PORT udp)
+read -r LINE <&3
+UDP_BASE_PID=$!
+sleep 0.2
+assert_zero "udp baseline: /proc/net/udp has port" \
+	bash -c "$(declare -f udp_ports); udp_ports | grep -qx $UDP_PORT"
+kill $UDP_BASE_PID 2>/dev/null || true
+wait $UDP_BASE_PID 2>/dev/null || true
+exec 3<&-
+sleep 0.3
+
+exec 3< <(tests/qemu/net_helper $UDP_PORT hide udp)
+read -r LINE <&3
+UDP_HIDE_PID=$!
+sleep 0.2
+assert_nonzero "udp hidden: /proc/net/udp omits port" \
+	bash -c "$(declare -f udp_ports); udp_ports | grep -qx $UDP_PORT"
+kill $UDP_HIDE_PID 2>/dev/null || true
+wait $UDP_HIDE_PID 2>/dev/null || true
+exec 3<&-
+
+assert_zero "udp: module unloads" rmmod rootkat
+
 report
