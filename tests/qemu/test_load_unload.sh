@@ -4,9 +4,11 @@ set -u
 cd /root/rootkat
 . tests/qemu/lib.sh
 
-assert_zero "module loads"   insmod lkm/rootkat.ko
-assert_zero "module appears" grep -q '^rootkat ' /proc/modules
-assert_zero "module unloads" rmmod rootkat
-assert_nonzero "module gone" grep -q '^rootkat ' /proc/modules
+# Smoke test: insmod + rmmod work. /proc/modules visibility is asserted
+# separately by test_self_hide.sh (the module self-hides on load by design,
+# so a "module appears in /proc/modules" check belongs only there).
+assert_zero    "module loads"   insmod lkm/rootkat.ko
+assert_zero    "module unloads" rmmod rootkat
+assert_nonzero "module gone"    grep -q '^rootkat ' /proc/modules
 
 report
