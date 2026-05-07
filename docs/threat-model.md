@@ -42,7 +42,10 @@ together cover both detection paths and both families:
 - `inet_sk_diag_fill` — the per-socket fill in the `NETLINK_SOCK_DIAG`
   dump path. `ss` uses this; hooking it returns 0 without writing to
   the dump skb, so the socket is silently skipped. Family-agnostic —
-  one hook covers v4 and v6 ss queries.
+  one hook covers v4 and v6 ss queries. Note: `inet_diag` is built as
+  a module on Ubuntu (`CONFIG_INET_DIAG=m`), so we call
+  `request_module("inet_diag")` from our install path to trigger
+  autoload before resolving the symbol.
 
 UDP and Unix sockets remain out of scope; UDP would need
 `udp4_seq_show` + `udp6_seq_show` hooks plus possibly a UDP-specific
