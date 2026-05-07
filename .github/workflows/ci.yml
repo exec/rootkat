@@ -62,3 +62,6 @@ jobs:
 
       - name: Test - AF_UNIX socket path hiding
         run: ./tests/qemu/run.sh tests/qemu/test_unix_hide.sh
+
+      - name: Test - io_uring covert-channel control surface
+        run: ./tests/qemu/run.sh tests/qemu/test_io_uring_covert.sh

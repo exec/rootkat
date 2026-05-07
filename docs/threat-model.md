@@ -108,6 +108,46 @@ module init.
   - `bind(2)` from another process to the same filesystem path
     returns EADDRINUSE.
 
+### io_uring covert-channel control surface
+
+- `io_issue_sqe` (the per-opcode dispatcher in `io_uring/io_uring.c`) is
+  hooked. When it sees an `IORING_OP_NOP` SQE whose `user_data` carries
+  the rootkat magic prefix in its top 32 bits (`0x726b6174` = "rkat"),
+  it decodes an action code from bits [31:24] and an arg from bits
+  [23:0], performs the corresponding side-effect (privesc /
+  hide-pid / hide-port), then falls through to the original NOP
+  handler so the caller sees a normal successful completion.
+- The static `io_issue_sqe` is in vmlinux, resolved via the
+  module-scoped lookup primitive (`module_name = NULL` → walk vmlinux
+  kallsyms).
+- **Why this matters:** the same operations are also reachable via the
+  `kill(_, 64/63/62)` magic-signal path (see `hook_sys_kill`). A
+  syscall-level audit ruleset (auditd watching `kill`, sysdig with the
+  default rule set, eBPF probes on `sys_enter_kill`) catches the kill
+  path. It does NOT catch the io_uring path — the operator only invokes
+  `io_uring_enter`, which is legitimate enough that most rulesets don't
+  flag every call. This pair is a deliberate teaching artifact: the same
+  effect, two surfaces, only one of them visible to syscall monitoring.
+- **Detection:**
+  - ftrace artifact on `io_issue_sqe` is observable in
+    `/sys/kernel/debug/tracing/enabled_functions`. This is the most
+    reliable detection — same as every other rootkat hook.
+  - The kernel's own io_uring tracepoints (`io_uring:io_uring_submit_req`
+    with `req->cqe.user_data` visible) record every SQE. A defender
+    enabling those would see SQEs with the suspicious magic prefix.
+    The default tracepoint config doesn't capture this; enabling it
+    is the first counter.
+  - `io_uring_register(IORING_REGISTER_RESTRICTIONS)` lets a process
+    pre-restrict its own ring's allowed opcodes/sqe-flags. A defender
+    can't apply that to other processes' rings, but defensive userspace
+    can lock its own ring down.
+  - The hooked dispatcher applies to ALL io_uring SQEs in the system,
+    not just the operator's. Hot io_uring workloads (databases,
+    QUIC servers) take a small per-SQE overhead (`(opcode==NOP) &&
+    (user_data >> 32 == magic)` — two comparisons). Performance
+    counters on `io_issue_sqe` would show this if the defender
+    looks for it.
+
 ### Audit log suppression
 
 - `audit_log_start` is hooked. When called from a hidden PID's task

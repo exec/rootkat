@@ -7,7 +7,7 @@ documentation alongside.
 
 ## Status
 
-v0.8 — rootkit features verified end-to-end against Linux 7.0 in CI:
+v0.9 — rootkit features verified end-to-end against Linux 7.0 in CI:
 
 | Feature                     | Mechanism                                     | Trigger                       |
 |-----------------------------|-----------------------------------------------|-------------------------------|
@@ -23,6 +23,7 @@ v0.8 — rootkit features verified end-to-end against Linux 7.0 in CI:
 | Audit log suppression       | ftrace hook on `audit_log_start` (return NULL for hidden PIDs) | per hidden PID |
 | AF_UNIX path hide (`/proc/net/unix`) | ftrace hook on `unix_seq_show`; substring-match against `.rootkat` (default) | automatic for matching paths |
 | AF_UNIX path hide (`ss -lx`) | ftrace hook on `unix_diag`'s static `sk_diag_fill`, resolved via module-scoped kallsyms lookup | (same registry) |
+| io_uring covert control channel | ftrace hook on `io_issue_sqe`; magic `user_data` on `IORING_OP_NOP` SQE → privesc / hide-pid / hide-port | submit SQE via `io_uring_enter` |
 
 All techniques are documented in `docs/threat-model.md` with their detection
 artifacts. The matching test for each lives in `tests/qemu/test_*.sh` and runs
@@ -87,7 +88,6 @@ reads the threat model can build a detector for rootkat in an afternoon.
 
 ## What's NOT here yet (v2 backlog)
 
-- io_uring covert channel
 - Multi-kernel CI matrix (linux-next bumps)
 - Port real rootkit components from C to Rust
 - C2 integration

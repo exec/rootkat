@@ -189,19 +189,25 @@ subagent-driven development for big tasks. Default to:
 - Don't suggest "production deployment" or "weaponization" tweaks.
   The educational + open-source framing is the project's premise.
 
-## Current status (2026-05-07)
+## Current status (2026-05-08)
 
-v0.8 — 16 features verified end-to-end on real Linux 7.0 in CI (audit
-hook is code-only / not CI-asserted). 10/10 QEMU tests pass.
+v0.9 — 17 features verified end-to-end on real Linux 7.0 in CI (audit
+hook is code-only / not CI-asserted). 11/11 QEMU tests pass.
 
-`lkm/kallsyms.c` now exposes `rootkat_lookup_in_module(name, mod)` which
-walks `kallsyms_on_each_symbol` and filters by `__module_address`. This
-unblocks any future hook on a static-named symbol that collides with
-same-named statics in another module (`sk_diag_fill` was the first
-casualty). New ftrace primitive: `rootkat_hook_install_at(h, addr)`
-bypasses the candidates list when the caller pre-resolved via
-module-scoped lookup.
+Two control surfaces with parity now: the kill(2) magic-signal hijack
+and the io_uring covert channel (IORING_OP_NOP SQE with magic
+`user_data`). Both go through `lkm/magic_actions.c` for the actual
+side effects (privesc / hide-current-pid / hide-port) — a single
+implementation, two delivery channels. The teaching artifact: an
+audit ruleset that watches `kill` catches the first but not the second.
 
-Backlog: io_uring covert channel, multi-kernel CI matrix, port real C
-components to Rust. See `README.md` "What's NOT here yet" for the
-canonical list.
+Module-scoped resolver primitive (`rootkat_lookup_in_module`, in
+`lkm/kallsyms.c`) walks vmlinux via `kallsyms_on_each_symbol` (NULL
+module_name) or a specific module via `module_kallsyms_on_each_symbol`.
+Used to pin static-named symbols that collide across modules
+(`sk_diag_fill` in unix_diag/inet_diag/raw_diag) and to resolve static
+vmlinux symbols (`io_issue_sqe`).
+
+Backlog: multi-kernel CI matrix, port real C components to Rust,
+alcapwn C2 integration (deferred). See `README.md` "What's NOT here
+yet" for the canonical list.
