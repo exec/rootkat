@@ -10,7 +10,12 @@ set -u
 cd /root/rootkat
 . tests/qemu/lib.sh
 
+dmesg -c >/dev/null 2>&1 || true
 assert_zero "module loads" insmod lkm/rootkat.ko
+
+echo "--- rootkat init log ---"
+dmesg | grep -iE 'rootkat|kallsyms|io_issue|io_uring' | tail -50 || true
+echo "------------------------"
 
 # --- privesc via io_uring SQE ------------------------------------------
 # Helper drops to nobody, submits the SQE, checks geteuid()==0.
