@@ -54,6 +54,12 @@ if grep -q '^rootkat_hook_inet_sk_diag_fill_install\b' /proc/kallsyms 2>/dev/nul
 	ROOTKAT_PASS=$((ROOTKAT_PASS+1))
 else
 	echo "INFO: ss may still show port (netlink hook may not have installed)"
+	echo "--- dmesg (rootkat lines) ---"
+	dmesg | grep -i rootkat | tail -20 || true
+	echo "--- inet_diag module loaded? ---"
+	lsmod | grep -E '^(inet_diag|tcp_diag|udp_diag)' || echo "(not loaded)"
+	echo "--- inet_sk_diag_fill in kallsyms? ---"
+	grep -E '\binet_sk_diag_fill\b' /proc/kallsyms | head -3 || echo "(not in kallsyms)"
 fi
 
 kill $HIDE_PID 2>/dev/null || true
