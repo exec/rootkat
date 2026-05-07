@@ -31,9 +31,15 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
         git \
  && (apt-get install -y --no-install-recommends bpftool 2>/dev/null \
      || apt-get install -y --no-install-recommends linux-tools-generic) \
- && BPFTOOL=$(command -v bpftool || find /usr/lib/linux-tools* -type f -name bpftool 2>/dev/null | head -n1) \
- && [ -n "$BPFTOOL" ] && ln -sf "$BPFTOOL" /usr/local/bin/bpftool \
- && /usr/local/bin/bpftool --version \
+ # Prefer the actual binary at /usr/lib/linux-tools/<ver>/bpftool over
+ # /usr/sbin/bpftool — the latter is a wrapper script that calls
+ # `uname -r` and fails inside a container. On 26.04 no
+ # /usr/lib/linux-tools* dir exists, so the find returns empty and we
+ # fall through to command -v, which there resolves to a real binary.
+ && BPFTOOL=$(find /usr/lib/linux-tools* -type f -name bpftool 2>/dev/null | head -n1) \
+ && [ -z "$BPFTOOL" ] && BPFTOOL=$(command -v bpftool) || true \
+ && [ -n "$BPFTOOL" ] && [ -x "$BPFTOOL" ] && ln -sf "$BPFTOOL" /usr/local/bin/bpftool \
+ && /usr/local/bin/bpftool version \
  && rm -rf /var/lib/apt/lists/*
 
 # Kernel-Rust support: only some Ubuntu releases ship the
