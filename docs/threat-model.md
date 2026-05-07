@@ -79,10 +79,26 @@ filtering would need a separate code path.
   of the auto-load (e.g. an unrecognized module loaded before
   `multi-user.target`) is more robust than string-based hunts.
 
+### BPF program self-hide
+
+- The sys_bpf hook intercepts `BPF_PROG_GET_NEXT_ID` and skips past any
+  prog whose name (in `bpf_prog_aux->name`) matches the rootkat hidden
+  string. `bpftool prog list`, `libbpf` enumerators, and the `bpf-iter`
+  programs that go through the syscall path all see a contiguous-looking
+  ID space minus our entry.
+- The hook resolves `bpf_prog_by_id` and `bpf_prog_put` via kallsyms at
+  install time (these are not exported symbols).
+- Detection: a defender can read `/sys/kernel/btf/vmlinux` directly, or
+  enumerate via `BPF_OBJ_GET_INFO_BY_FD` against an fd they obtained
+  through other means (e.g., `/proc/self/fdinfo/<fd>` of a known loader
+  process). The hook only filters `BPF_PROG_GET_NEXT_ID`.
+- ftrace artifact on `__x64_sys_bpf` is observable in
+  `/sys/kernel/debug/tracing/enabled_functions`.
+
 ### eBPF file hide via LSM
 
-- `bpftool prog list` shows the loaded program (until BPF-program-hiding is
-  added in a later milestone).
+- `bpftool prog list` no longer shows the loaded program (BPF-program-
+  hiding ships in this version, see above).
 - Auditd records the BPF syscall at load time.
 - The hooked LSM is observable via `bpftool perf list`.
 - **Boot requirement:** the BPF LSM hook only fires when `bpf` is present in
