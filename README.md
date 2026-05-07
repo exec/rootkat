@@ -33,6 +33,11 @@ inside a real kernel-7.0 QEMU VM in CI.
   rewriting (so `ss` is fooled too).
 - **Userland loader (libbpf)** — loads and attaches the eBPF program; survives
   rebuilds across kernel versions via CO-RE relocations.
+- **Rust LKM (`rust/`)** — hello-world Rust kernel module, built against
+  Ubuntu 26.04's `linux-lib-rust-7.0.0-15-generic` package + `rustc 1.93.1`.
+  No rootkit functionality yet — present to prove the build pipeline +
+  runtime support work, and to set the pattern for porting individual
+  components to Rust in v0.5+.
 - **QEMU test harness** — drives a kernel-7.0 cloud image with cloud-init, runs
   each test inside the VM, propagates pass/fail. Auto-rewrites GRUB to put
   `bpf` in the LSM list before the file-hide test (Ubuntu 26.04's default
@@ -83,6 +88,7 @@ reads the threat model can build a detector for rootkat in an afternoon.
 - io_uring covert channel
 - Rust LKM component
 - Multi-kernel CI matrix (linux-next bumps)
+- Port real rootkit components from C to Rust
 - C2 integration
 
 ## Educational use only
