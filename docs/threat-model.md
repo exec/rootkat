@@ -31,6 +31,20 @@ modern stealth techniques and documents how each is detected.
 - `/sys/module/<name>/` directory still exists if not also hidden.
 - Module taint: `cat /proc/sys/kernel/tainted` flips the OOT_MODULE bit.
 
+### Network port hiding via `tcp4_seq_show`
+
+- The hook intercepts `/proc/net/tcp` reads (used by `lsof -i`, `cat
+  /proc/net/tcp`, older `netstat` builds, /proc walkers).
+- **Known bypass:** modern `ss` uses `NETLINK_SOCK_DIAG` (the
+  `inet_diag` family) which doesn't go through `tcp4_seq_show` — `ss
+  -tln` will still list a hidden port. Defenders running `ss` get a
+  signal; defenders relying on `/proc/net/tcp` do not. v2 milestone:
+  netlink-rewriting eBPF companion that also filters `inet_diag` dump
+  responses (the VoidLink pattern).
+- IPv6 (`tcp6_seq_show`), UDP, and Unix sockets are out of scope for v1.
+- Only the local port is matched; remote-port-only filtering would need
+  a separate code path.
+
 ### eBPF file hide via LSM
 
 - `bpftool prog list` shows the loaded program (until BPF-program-hiding is
