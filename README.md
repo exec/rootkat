@@ -16,7 +16,7 @@ v0.2 — six rootkit features verified end-to-end against Linux 7.0 in CI:
 | File hide                   | CO-RE eBPF on `lsm/file_open`                | `loader <name>`               |
 | Privesc to root             | ftrace hook on `__x64_sys_kill`              | `kill(0, 64)`                 |
 | Process hide                | ftrace hook on `filldir64`                   | `kill(0, 63)` from the target |
-| TCP port hide (`/proc/net/tcp`) | ftrace hook on `tcp4_seq_show`           | `kill(<port>, 62)`            |
+| TCP port hide (v4 + v6)     | ftrace hooks on `tcp4_seq_show` / `tcp6_seq_show` | `kill(<port>, 62)`     |
 
 All techniques are documented in `docs/threat-model.md` with their detection
 artifacts. The matching test for each lives in `tests/qemu/test_*.sh` and runs
@@ -72,7 +72,7 @@ reads the threat model can build a detector for rootkat in an afternoon.
 - BPF program self-hide (visible to `bpftool prog list`)
 - Netlink/sock_diag rewriting (so `ss` is also fooled, not just /proc/net/tcp)
 - Audit log suppression
-- IPv6 / UDP / Unix-socket hiding
+- UDP / Unix-socket hiding
 - io_uring covert channel
 - Rust LKM component
 - Multi-kernel CI matrix (linux-next bumps)

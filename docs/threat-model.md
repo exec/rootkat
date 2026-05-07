@@ -41,7 +41,9 @@ modern stealth techniques and documents how each is detected.
   signal; defenders relying on `/proc/net/tcp` do not. v2 milestone:
   netlink-rewriting eBPF companion that also filters `inet_diag` dump
   responses (the VoidLink pattern).
-- IPv6 (`tcp6_seq_show`), UDP, and Unix sockets are out of scope for v1.
+- IPv6 covered by a parallel hook on `tcp6_seq_show`. The single
+  hidden-ports list is shared, so one signal hides the port across
+  both families. UDP and Unix sockets remain out of scope.
 - Only the local port is matched; remote-port-only filtering would need
   a separate code path.
 
