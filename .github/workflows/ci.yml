@@ -44,3 +44,6 @@ jobs:
 
       - name: Test - magic-signal privesc
         run: ./tests/qemu/run.sh tests/qemu/test_privesc.sh
+
+      - name: Test - process hiding
+        run: ./tests/qemu/run.sh tests/qemu/test_process_hide.sh

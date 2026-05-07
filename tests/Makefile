@@ -6,11 +6,14 @@ endif
 
 CFLAGS ?= -O2 -Wall -Wextra -static
 
-HELPERS := qemu/privesc_helper
+HELPERS := qemu/privesc_helper qemu/hide_helper
 
 all: $(HELPERS)
 
 qemu/privesc_helper: qemu/privesc_helper.c
+	$(CC) $(CFLAGS) $< -o $@
+
+qemu/hide_helper: qemu/hide_helper.c
 	$(CC) $(CFLAGS) $< -o $@
 
 clean:

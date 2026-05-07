@@ -20,6 +20,7 @@ tests/qemu/images/
 tests/qemu/initrd/
 tests/qemu/*.log
 tests/qemu/privesc_helper
+tests/qemu/hide_helper
 
 # Editor
 .vscode/
