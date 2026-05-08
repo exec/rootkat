@@ -169,6 +169,16 @@ Choosing high real-time signals avoids stomping on common app signals.
   fails -EINVAL on it. The resolver in `lkm/kallsyms.c` walks to
   completion and only falls back to the suffixed match if no exact
   match exists.
+- **Don't bypass the ftrace recursion guard.** The
+  `within_module(parent_ip, THIS_MODULE)` check in
+  `rootkat_ftrace_thunk` makes the `orig(...)` pass-through safe —
+  when our replacement calls orig, parent_ip is in our module, the
+  guard skips our replacement, the original function body runs. If
+  you disable the guard, calling orig re-enters ftrace → your
+  replacement → infinite loop. Learned this the hard way on the
+  printk hook in 3143844: the persistence test hung the boot for
+  420s. Reverted in 704bd4b — silence rootkat's own logs at compile
+  time via `pr_debug` instead.
 
 ## Design decisions to respect
 
