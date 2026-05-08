@@ -13,7 +13,7 @@ unsigned long rootkat_resolve(const char * const *candidates,
 
 	/* Defend against zero-init struct fields and other caller mishaps. */
 	if (!candidates || !*candidates) {
-		pr_warn(TAG "called with %s candidate list\n",
+		pr_debug(TAG "called with %s candidate list\n",
 		        candidates ? "empty" : "NULL");
 		return 0;
 	}
@@ -21,7 +21,7 @@ unsigned long rootkat_resolve(const char * const *candidates,
 	for (c = candidates; *c; c++) {
 		addr = rootkat_lookup_name(*c);
 		if (addr) {
-			pr_info(TAG "resolved '%s' -> %lx\n", *c, addr);
+			pr_debug(TAG "resolved '%s' -> %lx\n", *c, addr);
 			if (matched)
 				*matched = *c;
 			return addr;
@@ -30,8 +30,8 @@ unsigned long rootkat_resolve(const char * const *candidates,
 
 	/* On miss, log ALL candidates so the failure can be diagnosed
 	 * against /proc/kallsyms without having to read the call site. */
-	pr_warn(TAG "no candidate resolved; tried:\n");
+	pr_debug(TAG "no candidate resolved; tried:\n");
 	for (c = candidates; *c; c++)
-		pr_warn(TAG "  - '%s'\n", *c);
+		pr_debug(TAG "  - '%s'\n", *c);
 	return 0;
 }

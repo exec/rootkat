@@ -109,7 +109,7 @@ unsigned long rootkat_lookup_in_module(const char *name,
 			mod_on_each_sym = (mod_on_each_t)
 				rootkat_lookup_name("module_kallsyms_on_each_symbol");
 			if (!mod_on_each_sym) {
-				pr_warn(TAG "module_kallsyms_on_each_symbol not resolved\n");
+				pr_debug(TAG "module_kallsyms_on_each_symbol not resolved\n");
 				return 0;
 			}
 		}
@@ -119,7 +119,7 @@ unsigned long rootkat_lookup_in_module(const char *name,
 			on_each_sym = (on_each_t)
 				rootkat_lookup_name("kallsyms_on_each_symbol");
 			if (!on_each_sym) {
-				pr_warn(TAG "kallsyms_on_each_symbol not resolved\n");
+				pr_debug(TAG "kallsyms_on_each_symbol not resolved\n");
 				return 0;
 			}
 		}
@@ -127,16 +127,16 @@ unsigned long rootkat_lookup_in_module(const char *name,
 	}
 
 	if (!ctx.result && ctx.fallback) {
-		pr_info(TAG "no exact '%s'; using suffixed fallback in [%s] -> %lx\n",
+		pr_debug(TAG "no exact '%s'; using suffixed fallback in [%s] -> %lx\n",
 		        name, module_name ? module_name : "vmlinux", ctx.fallback);
 		ctx.result = ctx.fallback;
 	}
 
 	if (ctx.result)
-		pr_info(TAG "resolved '%s' in [%s] -> %lx\n",
+		pr_debug(TAG "resolved '%s' in [%s] -> %lx\n",
 		        name, module_name ? module_name : "vmlinux", ctx.result);
 	else
-		pr_warn(TAG "no '%s' in [%s]\n",
+		pr_debug(TAG "no '%s' in [%s]\n",
 		        name, module_name ? module_name : "vmlinux");
 	return ctx.result;
 }

