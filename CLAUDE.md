@@ -65,9 +65,12 @@ the build user can use it.
 - **`ebpf/`** — CO-RE eBPF program(s) + libbpf loader. Today: file hide
   via `lsm/file_open`. Needs `bpf` in the kernel's `lsm=` list — the
   test harness rewrites GRUB and reboots once on first run.
-- **`rust/`** — hello-world Rust LKM. Builds against
+- **`rust/`** — `rootkat_rust_canary.ko`. Built against
   `linux-lib-rust-7.0.0-15-generic` + `rustc 1.93.1` from Ubuntu 26.04.
-  Pattern is in place; no rootkit functionality yet.
+  Maintains `static AtomicU32` and exports `rootkat_canary_tick()` /
+  `rootkat_canary_value()` to other modules. rootkat.ko declares both
+  as `__attribute__((weak))` and calls tick() at init — graceful
+  degradation when the Rust LKM isn't loaded (24.04 matrix entry).
 - **`scripts/install.sh` / `uninstall.sh`** — systemd-based persistence.
 - **`tests/qemu/`** — `run.sh` drives a kernel-7.0 cloud image with
   cloud-init, virtio-9p mounts the project tree, runs one
@@ -205,10 +208,15 @@ subagent-driven development for big tasks. Default to:
 
 ## Current status (2026-05-08)
 
-v0.10 — 17 features verified end-to-end on Linux 7.0 AND Linux 6.x in
-CI (audit hook is code-only / not CI-asserted). 11/11 tests pass on
-26.04/7.0; 10/11 on 24.04/6.x (Rust LKM test skipped — no lib-rust
-package on that release).
+v0.11 — 18 features (audit hook is code-only / not CI-asserted).
+Multi-kernel CI matrix: 11/11 tests pass on 26.04/7.0; 10/11 on
+24.04/6.x (Rust LKM test skipped — KERNEL_RUST=disabled for that
+matrix entry). v0.11 adds a Rust LKM (`rootkat_rust_canary`) that
+maintains an `AtomicU32` and exports `rootkat_canary_tick()` /
+`rootkat_canary_value()` via `#[no_mangle] extern "C"`. The C
+module calls them weak-linked at init — when the Rust LKM isn't
+loaded, the symbols stay NULL and rootkat.ko prints
+"rust canary not loaded (C-only build)" instead.
 
 Two control surfaces with parity now: the kill(2) magic-signal hijack
 and the io_uring covert channel (IORING_OP_NOP SQE with magic

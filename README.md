@@ -7,7 +7,7 @@ documentation alongside.
 
 ## Status
 
-v0.10 — rootkit features verified end-to-end against multiple kernels
+v0.11 — rootkit features verified end-to-end against multiple kernels
 in CI (matrix: Ubuntu 26.04 / kernel 7.0 + Ubuntu 24.04 LTS / kernel 6.x):
 
 | Feature                     | Mechanism                                     | Trigger                       |
@@ -25,6 +25,7 @@ in CI (matrix: Ubuntu 26.04 / kernel 7.0 + Ubuntu 24.04 LTS / kernel 6.x):
 | AF_UNIX path hide (`/proc/net/unix`) | ftrace hook on `unix_seq_show`; substring-match against `.rootkat` (default) | automatic for matching paths |
 | AF_UNIX path hide (`ss -lx`) | ftrace hook on `unix_diag`'s static `sk_diag_fill`, resolved via module-scoped kallsyms lookup | (same registry) |
 | io_uring covert control channel | ftrace hook on `io_issue_sqe`; magic `user_data` on `IORING_OP_NOP` SQE → privesc / hide-pid / hide-port | submit SQE via `io_uring_enter` |
+| Rust canary (cross-module) | Rust LKM with `AtomicU32` exports `rootkat_canary_tick`/`_value`; rootkat.ko calls them weak-linked at init | auto on load (kernel-7.0 matrix only) |
 
 All techniques are documented in `docs/threat-model.md` with their detection
 artifacts. The matching test for each lives in `tests/qemu/test_*.sh` and runs
@@ -41,11 +42,14 @@ inside a real kernel-7.0 QEMU VM in CI.
   rewriting (so `ss` is fooled too).
 - **Userland loader (libbpf)** — loads and attaches the eBPF program; survives
   rebuilds across kernel versions via CO-RE relocations.
-- **Rust LKM (`rust/`)** — hello-world Rust kernel module, built against
+- **Rust LKM (`rust/`)** — `rootkat_rust_canary.ko`, built against
   Ubuntu 26.04's `linux-lib-rust-7.0.0-15-generic` package + `rustc 1.93.1`.
-  No rootkit functionality yet — present to prove the build pipeline +
-  runtime support work, and to set the pattern for porting individual
-  components to Rust in v0.5+.
+  Maintains a static `AtomicU32` and exports `rootkat_canary_tick()` /
+  `rootkat_canary_value()` via `#[no_mangle] extern "C"` — rootkat.ko
+  declares both as `__attribute__((weak))` and calls tick() at init.
+  When the Rust LKM isn't loaded (24.04 matrix entry, KERNEL_RUST=disabled),
+  the weak symbols stay NULL and the C side gracefully skips. Pattern
+  for porting further components to Rust as the kernel-Rust API grows.
 - **QEMU test harness** — drives a kernel-7.0 cloud image with cloud-init, runs
   each test inside the VM, propagates pass/fail. Auto-rewrites GRUB to put
   `bpf` in the LSM list before the file-hide test (Ubuntu 26.04's default
@@ -97,7 +101,9 @@ reads the threat model can build a detector for rootkat in an afternoon.
 
 ## What's NOT here yet (v2 backlog)
 
-- Port real rootkit components from C to Rust
+- Further C→Rust ports (the canary in v0.11 is the first real bit of
+  Rust functionality; future ports await broader kernel-Rust API
+  stabilization, e.g. ftrace, kallsyms helpers, procfs)
 - C2 integration
 
 ## Educational use only

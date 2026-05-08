@@ -17,6 +17,8 @@ rust/*.rmeta
 rust/*.d
 rust/.*.cmd
 rust/target/
+rust/Module.symvers
+rust/modules.order
 
 # eBPF
 ebpf/vmlinux.h
