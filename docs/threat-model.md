@@ -148,6 +148,53 @@ module init.
     counters on `io_issue_sqe` would show this if the defender
     looks for it.
 
+### Netfilter covert-channel control surface
+
+- A netfilter hook at `NF_INET_PRE_ROUTING` (priority `NF_IP_PRI_FIRST`)
+  inspects every inbound IPv4 UDP packet. If the first 16 payload bytes
+  are the magic frame (`"rootkat\0"` + 1-byte action + 3-byte
+  reserved + 4-byte big-endian arg), it decodes and runs the action
+  (hide-pid or hide-port), then returns `NF_DROP` so the packet never
+  reaches any local socket.
+- **No listening socket required.** The host doesn't need to `bind()`
+  anything: the hook fires before routing, before socket dispatch.
+  `lsof -i UDP` and `/proc/net/udp` show nothing listening; the rootkit
+  still receives commands.
+- **Why this matters:** completes the local/IPC/remote channel triptych
+  along with the kill magic-signal path and the io_uring NOP-SQE path.
+  The same `magic_actions.c` registry-mutator logic is reachable three
+  ways, only one of which (`kill`) is visible to syscall-level audit.
+  The netfilter path is visible only to defenders specifically watching
+  the kernel's netfilter hook list.
+- **Privesc deliberately not exposed on this channel** — privesc requires
+  a target task context, and an inbound packet has no notion of "the
+  caller". The natural absolute-target form (`privesc PID X to root`)
+  would require modifying another task's creds from outside its run
+  context, which is delicate. Caller-context privesc is reachable via
+  the kill / io_uring channels.
+- **Detection:**
+  - `cat /proc/net/netfilter/nf_log` shows registered hooks per family.
+    Modern kernels also expose hook info via `nft list hooks` (nftables)
+    or `iptables-save` (legacy iptables) — neither shows our raw
+    `nf_register_net_hook` registration directly, but the kernel's
+    internal hook chain at `NF_INET_PRE_ROUTING` includes our function
+    address. A defender enumerating netfilter hooks via the
+    `xtables-monitor` style or by walking `init_net.nf.hooks_ipv4`
+    sees an unfamiliar function pointer.
+  - ftrace artifact on the hook itself (`rootkat_nf_pre_routing`) is
+    NOT enumerable via `/sys/kernel/debug/tracing/enabled_functions`
+    — that's only ftrace-instrumented hooks. We don't ftrace-hook this
+    one; netfilter has its own hook table. Defenders need to walk that
+    table, not the ftrace one.
+  - `tcpdump -i lo -n udp` running on the host BEFORE rootkat loaded
+    captures the magic packet. Once rootkat is loaded, the same `tcpdump`
+    still sees the packet at the AF_PACKET tap (libpcap taps before
+    netfilter), so a defender packet-capturing the host can spot the
+    distinctive `"rootkat\0"` prefix in payloads.
+  - The hook is in `init_net` (root network namespace) only. Packets
+    from a different netns aren't seen — a defender running rootkat in
+    a constrained namespace can box the channel.
+
 ### Audit log suppression
 
 - `audit_log_start` is hooked. When called from a hidden PID's task

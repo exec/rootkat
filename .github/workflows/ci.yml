@@ -77,3 +77,6 @@ jobs:
 
       - name: Test - io_uring covert-channel control surface
         run: ./tests/qemu/run.sh tests/qemu/test_io_uring_covert.sh
+
+      - name: Test - netfilter covert-channel control surface
+        run: ./tests/qemu/run.sh tests/qemu/test_netfilter_covert.sh
