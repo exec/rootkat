@@ -206,14 +206,35 @@ module init.
   `/dev/kmsg` → `dmesg`/`journalctl`, `kdb`, `netconsole`) sees the
   same stripped log because we filter at write time, not read time.
 - **What this hides:**
-  - Every `pr_info(ROOTKAT_TAG ...)` line we emit at install/use/exit.
-  - The kernel's own `"$mod: loading out-of-tree module taints kernel"`
-    warning — `mod->name` is `"rootkat"` so the formatted message
-    contains the marker.
-  - The hook itself prints once at install ("hooked %lx") — that one
-    line lands BEFORE the filter is armed and survives in dmesg. We
-    accept it as the cost of bootstrapping; a defender already knows
-    `insmod` happened.
+  - Every `pr_info(ROOTKAT_TAG ...)` line we emit *after* the filter
+    arms, which is one of the first things `rootkat_init` does (after
+    kallsyms bootstrap). All the per-hook "resolved X" / "hooked Y"
+    install spam, the final "loaded (hidden)" line, every magic-action
+    log, and every "unhooked Y" exit line are dropped before they
+    reach the ring buffer.
+- **Bootstrap leakage (structurally unfilterable):**
+  - The kernel's `"$mod: loading out-of-tree module taints kernel"`
+    warning prints from the module-load machinery *before*
+    `rootkat_init()` runs — there is no point at which we can install
+    a filter early enough to catch it.
+  - The first `pr_info("rootkat: loading")` in `rootkat_init` fires
+    before kallsyms is initialized (we can't resolve `vprintk_emit`
+    until kallsyms is up), so it also leaks.
+  - The kallsyms-resolver and ftrace-install lines for the printk hook
+    itself print as part of arming the filter — by the time those
+    pr_infos run, the hook isn't installed yet.
+  - Net cost: 4-6 rootkat lines survive in dmesg from a clean boot
+    through `insmod`. Every line *after that* is filtered. A defender
+    who controls the host before `insmod` (pre-stage netconsole,
+    pre-load journald snapshot) catches the bootstrap; a defender
+    inspecting after-the-fact dmesg sees only those few lines and
+    nothing about the running rootkit's behavior.
+- **Recursion-guard opt-out:**
+  - The ftrace primitive normally short-circuits hooks whose caller
+    is `THIS_MODULE` (recursion safety). The printk hook explicitly
+    opts out via `intercept_own_calls = true` — the whole point is
+    filtering rootkat's own pr_info lines, and the replacement
+    (vsnprintf + strnstr) is provably non-recursive.
 - **Detection:**
   - ftrace artifact on `vprintk_emit` is observable in
     `/sys/kernel/debug/tracing/enabled_functions`. This is the most
