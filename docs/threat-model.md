@@ -197,6 +197,44 @@ module init.
     from a different netns aren't seen — a defender running rootkat in
     a constrained namespace can box the channel.
 
+### dmesg / printk self-hide
+
+- `vprintk_emit` is the choke point every kernel print funnels through.
+  We hook it, vsnprintf the message into a stack buffer (256B), and
+  drop on a `strnstr` match against the `"rootkat"` marker. Every
+  consumer of the kernel ring buffer (`klogctl` → `dmesg --syslog`,
+  `/dev/kmsg` → `dmesg`/`journalctl`, `kdb`, `netconsole`) sees the
+  same stripped log because we filter at write time, not read time.
+- **What this hides:**
+  - Every `pr_info(ROOTKAT_TAG ...)` line we emit at install/use/exit.
+  - The kernel's own `"$mod: loading out-of-tree module taints kernel"`
+    warning — `mod->name` is `"rootkat"` so the formatted message
+    contains the marker.
+  - The hook itself prints once at install ("hooked %lx") — that one
+    line lands BEFORE the filter is armed and survives in dmesg. We
+    accept it as the cost of bootstrapping; a defender already knows
+    `insmod` happened.
+- **Detection:**
+  - ftrace artifact on `vprintk_emit` is observable in
+    `/sys/kernel/debug/tracing/enabled_functions`. This is the most
+    reliable detection — and a defender enumerating ftrace artifacts
+    finds every other rootkat hook in the same listing.
+  - `dmesg --raw` shows the same filtered output (we drop before the
+    timestamp/level prefix is even applied).
+  - `pstore` captures the kernel buffer at the moment of an oops or
+    panic. If rootkat triggers a crash later, the pstore log includes
+    whatever messages reached the buffer — but our filter has already
+    excluded our marker, so even pstore won't see them.
+  - Attaching a kernel debugger (kgdb / kdb) before the module loads
+    captures everything; after rootkat is armed the debugger sees only
+    what the filter let through.
+  - **Strongest defender play**: enable `printk.devkmsg=on` and watch
+    `/dev/kmsg` from a sidecar machine via `netconsole` BEFORE rootkat
+    loads. Once the filter is armed, the netconsole stream goes silent
+    on rootkat-related lines too — the hook fires before netconsole's
+    own write path. Pre-load capture is the only way to see the
+    install-time messages we don't filter.
+
 ### Audit log suppression
 
 - `audit_log_start` is hooked. When called from a hidden PID's task

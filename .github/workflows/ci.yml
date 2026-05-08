@@ -80,3 +80,6 @@ jobs:
 
       - name: Test - netfilter covert-channel control surface
         run: ./tests/qemu/run.sh tests/qemu/test_netfilter_covert.sh
+
+      - name: Test - dmesg / printk self-hide
+        run: ./tests/qemu/run.sh tests/qemu/test_dmesg_hide.sh

@@ -208,16 +208,23 @@ subagent-driven development for big tasks. Default to:
 
 ## Current status (2026-05-08)
 
-v0.12 — 19 features (audit hook is code-only / not CI-asserted).
-Multi-kernel CI matrix: 12/12 tests pass on 26.04/7.0; 11/12 on
+v0.13 — 20 features (audit hook is code-only / not CI-asserted).
+Multi-kernel CI matrix: 13/13 tests pass on 26.04/7.0; 12/13 on
 24.04/6.x (Rust canary test skipped — KERNEL_RUST=disabled for that
 matrix entry).
 
-The three-channel control surface story is now complete: kill(_, 62..64)
-(local syscall), IORING_OP_NOP magic user_data (local IPC), and
-inbound UDP magic frame at NF_INET_PRE_ROUTING (remote network).
-Same registry mutators reachable three ways; only the kill path is
-visible to syscall-level audit.
+v0.13 closes the obvious self-detection gap: rootkat's own
+`pr_info("rootkat: ...")` lines and the kernel's `"loading
+out-of-tree module taints kernel"` warning are now filtered at
+`vprintk_emit` before reaching the kernel ring buffer. Every
+consumer (klogctl/dmesg, /dev/kmsg, kdb, netconsole) sees the
+stripped log. One install-time pr_info ("rootkat: loading") fires
+BEFORE the filter is armed and survives — accepted bootstrap cost.
+
+The three-channel control surface story (v0.12) is complete:
+kill(_, 62..64) (local syscall), IORING_OP_NOP magic user_data
+(local IPC), and inbound UDP magic frame at NF_INET_PRE_ROUTING
+(remote network). Same registry mutators reachable three ways.
 
 v0.11 added the Rust canary LKM (rootkat_rust_canary) — an
 AtomicU32 with two #[no_mangle] extern "C" functions exported via

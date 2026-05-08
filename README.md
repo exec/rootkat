@@ -7,7 +7,7 @@ documentation alongside.
 
 ## Status
 
-v0.12 — rootkit features verified end-to-end against multiple kernels
+v0.13 — rootkit features verified end-to-end against multiple kernels
 in CI (matrix: Ubuntu 26.04 / kernel 7.0 + Ubuntu 24.04 LTS / kernel 6.x):
 
 | Feature                     | Mechanism                                     | Trigger                       |
@@ -26,6 +26,7 @@ in CI (matrix: Ubuntu 26.04 / kernel 7.0 + Ubuntu 24.04 LTS / kernel 6.x):
 | AF_UNIX path hide (`ss -lx`) | ftrace hook on `unix_diag`'s static `sk_diag_fill`, resolved via module-scoped kallsyms lookup | (same registry) |
 | io_uring covert control channel | ftrace hook on `io_issue_sqe`; magic `user_data` on `IORING_OP_NOP` SQE → privesc / hide-pid / hide-port | submit SQE via `io_uring_enter` |
 | Netfilter covert control channel | `nf_register_net_hook` at `NF_INET_PRE_ROUTING`; magic 16-byte UDP payload prefix → hide-pid / hide-port | send UDP datagram with magic frame to any port (no listener needed) |
+| dmesg / printk self-hide | ftrace hook on `vprintk_emit`; vsnprintf + marker scan, drop on `"rootkat"` substring | automatic on load (filters before ring buffer) |
 | Rust canary (cross-module) | Rust LKM with `AtomicU32` exports `rootkat_canary_tick`/`_value`; rootkat.ko calls them weak-linked at init | auto on load (kernel-7.0 matrix only) |
 
 All techniques are documented in `docs/threat-model.md` with their detection

