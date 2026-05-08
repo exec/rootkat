@@ -39,8 +39,10 @@ inside a real kernel-7.0 QEMU VM in CI.
   structurally cannot: kernel-text rewriting, self-hiding, syscall return-value
   modification.
 - **eBPF (CO-RE)** — LSM hooks for portable, version-survives stealth. Today:
-  one program (file hide). v2 will add: BPF program self-hide, netlink/sock_diag
-  rewriting (so `ss` is fooled too).
+  one program (file hide). BPF program self-hide and ss netlink/sock_diag
+  filtering shipped in the LKM side (see the status table); the eBPF
+  surface is intentionally narrow because most rootkit work needs the
+  text-rewriting + recursion-guard story that ftrace gives us.
 - **Userland loader (libbpf)** — loads and attaches the eBPF program; survives
   rebuilds across kernel versions via CO-RE relocations.
 - **Rust LKM (`rust/`)** — `rootkat_rust_canary.ko`, built against

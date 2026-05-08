@@ -48,9 +48,11 @@ together cover both detection paths and both families:
   autoload before resolving the symbol.
 
 UDP /proc/net/udp{,6} is also covered (separate hook pair on
-`udp{4,6}_seq_show`, sharing the same hidden_ports list). Unix sockets
-remain out of scope. The UDP netlink path (ss -ulnp via NETLINK_SOCK_DIAG
-with IPPROTO_UDP) is not yet hooked; v3 milestone. Only local-port
+`udp{4,6}_seq_show`, sharing the same hidden_ports list). The
+`inet_sk_diag_fill` hook is protocol-agnostic — one hook covers TCP
+and UDP via NETLINK_SOCK_DIAG (both v4 and v6 families), so `ss -uln`
+also drops hidden ports. AF_UNIX sockets are covered by their own
+hook pair (see "AF_UNIX socket path hiding"). Only local-port
 matching is implemented; remote-port-only filtering would need a
 separate code path.
 
