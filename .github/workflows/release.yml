@@ -16,8 +16,10 @@ jobs:
           # Ubuntu release → kernel series shipped by linux-headers-generic.
           # Add a new row here when Ubuntu ships a new release with a new kernel series.
           # 24.10 (6.11) is intentionally omitted — it reached EOL July 2025.
+          # 25.04 (6.14) is intentionally omitted — it reached EOL January 2026; its
+          #   6.14.0-37 kernel also does not export const_current_task /
+          #   validate_usercopy_range, causing modpost failures.
           - { ubuntu_version: "24.04", kernel_rust: "disabled" }   # 6.8.x
-          - { ubuntu_version: "25.04", kernel_rust: "disabled" }   # 6.14.x
           - { ubuntu_version: "25.10", kernel_rust: "disabled" }   # 6.17.x
           - { ubuntu_version: "26.04", kernel_rust: "enabled"  }   # 7.0.x
 
@@ -91,7 +93,6 @@ jobs:
             | Asset | Kernel series | Ubuntu release |
             |-------|--------------|----------------|
             | `rootkat-ko-6.8.*-generic-x86_64.tar.gz`  | 6.8.x  | 24.04 LTS |
-            | `rootkat-ko-6.14.*-generic-x86_64.tar.gz` | 6.14.x | 25.04     |
             | `rootkat-ko-6.17.*-generic-x86_64.tar.gz` | 6.17.x | 25.10     |
             | `rootkat-ko-7.0.*-generic-x86_64.tar.gz`  | 7.0.x  | 26.04 LTS |
 

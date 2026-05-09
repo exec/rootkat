@@ -10,7 +10,8 @@ documentation alongside.
 ## Status
 
 v0.13 — rootkit features verified end-to-end against multiple kernels
-in CI (matrix: Ubuntu 24.04 LTS / kernel 6.8 + Ubuntu 25.04 / kernel 6.14 + Ubuntu 25.10 / kernel 6.17 + Ubuntu 26.04 / kernel 7.0):
+in CI (matrix: Ubuntu 24.04 LTS / kernel 6.8 + Ubuntu 26.04 / kernel 7.0);
+pre-built release artifacts also available for 6.17.x (Ubuntu 25.10):
 
 | Feature                     | Mechanism                                     | Trigger                       |
 |-----------------------------|-----------------------------------------------|-------------------------------|
@@ -67,7 +68,6 @@ All builds run in a Docker container (works on macOS / non-Linux hosts):
 
     ./scripts/build.sh                              # Ubuntu 26.04 / kernel 7.0 (default)
     UBUNTU_VERSION=24.04 ./scripts/build.sh         # Ubuntu 24.04 LTS / kernel 6.8
-    UBUNTU_VERSION=25.04 ./scripts/build.sh         # Ubuntu 25.04 / kernel 6.14
     UBUNTU_VERSION=25.10 ./scripts/build.sh         # Ubuntu 25.10 / kernel 6.17
 
 Requires Docker + buildx. Colima users: `brew install docker-buildx` once.
@@ -75,11 +75,14 @@ The first invocation builds the container per Ubuntu version (~2 min);
 subsequent runs reuse the matching image. Force a rebuild with
 `BUILD_IMAGE_FORCE=1 ./scripts/build.sh`.
 
-**Multi-kernel matrix.** CI exercises the full suite against Ubuntu 24.04 (6.8),
-25.04 (6.14), 25.10 (6.17), and 26.04 (7.0). The Rust
-LKM is built only when the matching kernel ships a `linux-lib-rust-*`
-package (currently 26.04 only); on kernels without it, `rust/Makefile`
-no-ops and `test_rust_module.sh` skips itself cleanly.
+Note: Ubuntu 25.04 (6.14.x) is not supported — it reached EOL January 2026
+and its kernel does not export `const_current_task` / `validate_usercopy_range`,
+causing modpost failures.
+
+**Multi-kernel matrix.** CI exercises the full suite against Ubuntu 24.04 (6.8)
+and 26.04 (7.0). The Rust LKM is built only when the matching kernel ships a
+`linux-lib-rust-*` package (currently 26.04 only); on kernels without it,
+`rust/Makefile` no-ops and `test_rust_module.sh` skips itself cleanly.
 
 ## Testing
 
