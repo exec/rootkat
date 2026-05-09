@@ -5,6 +5,9 @@
 #   release. The container's kernel headers come from that release, so
 #   the LKM ABI matches the QEMU cloud image at the same UBUNTU_VERSION.
 #   $BUILD_IMAGE_FORCE=1 forces a container rebuild.
+#   $ROOTKAT_COMPONENTS (space-separated, default "lkm ebpf rust tests")
+#   restricts which component subdirs are built. Set to "lkm" for a
+#   fast release build that only produces rootkat.ko.
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
@@ -22,11 +25,18 @@ if [ "${BUILD_IMAGE_FORCE:-0}" = "1" ] || ! docker image inspect "$IMAGE" >/dev/
 fi
 
 TARGET="${1:-all}"
+COMPONENTS="${ROOTKAT_COMPONENTS:-lkm ebpf rust tests}"
 
 BTF_MOUNT=()
 if [ -e /sys/kernel/btf/vmlinux ]; then
     BTF_MOUNT=(-v /sys/kernel/btf:/sys/kernel/btf:ro)
 fi
+
+BUILD_CMD=""
+for comp in $COMPONENTS; do
+    BUILD_CMD="${BUILD_CMD}make -C ${comp} ${TARGET} && "
+done
+BUILD_CMD="${BUILD_CMD%&& }"
 
 docker run --rm --platform linux/amd64 \
     -e ROOTKAT_I_UNDERSTAND=1 \
@@ -34,4 +44,4 @@ docker run --rm --platform linux/amd64 \
     -v "$ROOT":/work \
     -w /work \
     "$IMAGE" \
-    bash -c "make -C lkm $TARGET && make -C ebpf $TARGET && make -C rust $TARGET && make -C tests $TARGET"
+    bash -c "$BUILD_CMD"

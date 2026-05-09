@@ -1,0 +1,98 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - "v*"
+
+jobs:
+  build-ko:
+    name: Build .ko (${{ matrix.ubuntu_version }})
+    runs-on: ubuntu-24.04
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          # Ubuntu release → kernel series shipped by linux-headers-generic.
+          # Add a new row here when Ubuntu ships a new release with a new kernel series.
+          # 24.10 (6.11) is intentionally omitted — it reached EOL July 2025.
+          - { ubuntu_version: "24.04", kernel_rust: "disabled" }   # 6.8.x
+          - { ubuntu_version: "25.04", kernel_rust: "disabled" }   # 6.14.x
+          - { ubuntu_version: "25.10", kernel_rust: "disabled" }   # 6.17.x
+          - { ubuntu_version: "26.04", kernel_rust: "enabled"  }   # 7.0.x
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build rootkat.ko (lkm only)
+        env:
+          UBUNTU_VERSION: ${{ matrix.ubuntu_version }}
+          KERNEL_RUST: ${{ matrix.kernel_rust }}
+          BUILD_IMAGE_FORCE: "1"
+          ROOTKAT_COMPONENTS: "lkm"
+        run: ./scripts/build.sh
+
+      - name: Determine kernel version from vermagic
+        id: kver
+        run: |
+          KVER=$(modinfo lkm/rootkat.ko | awk '/^vermagic:/{print $2}')
+          if [ -z "$KVER" ]; then
+            echo "ERROR: could not read vermagic from lkm/rootkat.ko" >&2
+            exit 1
+          fi
+          ASSET="rootkat-ko-${KVER}-x86_64.tar.gz"
+          echo "kver=$KVER"   >> "$GITHUB_OUTPUT"
+          echo "asset=$ASSET" >> "$GITHUB_OUTPUT"
+          echo "Built for kernel: $KVER"
+
+      - name: Package
+        run: |
+          ASSET="${{ steps.kver.outputs.asset }}"
+          tar -czf "$ASSET" -C lkm rootkat.ko
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: rootkat-ko-${{ steps.kver.outputs.kver }}
+          path: ${{ steps.kver.outputs.asset }}
+
+  release:
+    name: Publish release
+    needs: build-ko
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: artifacts/
+          merge-multiple: true
+
+      - name: List assets
+        run: ls -lh artifacts/
+
+      - uses: softprops/action-gh-release@v1
+        with:
+          files: artifacts/*.tar.gz
+          body: |
+            ## Pre-built kernel modules
+
+            Drop the matching `.tar.gz` into your alcapwn cache:
+
+            ```sh
+            KVER=$(uname -r)
+            mkdir -p ~/.alcapwn/rootkat/$KVER
+            curl -fsSL https://github.com/exec/rootkat/releases/latest/download/rootkat-ko-${KVER}-x86_64.tar.gz \
+              | tar -xz -C ~/.alcapwn/rootkat/$KVER rootkat.ko
+            ```
+
+            Or let alcapwn fetch it automatically: `persist <id> rootkat` downloads
+            and caches the right `.ko` for the target kernel if one is available.
+
+            | Asset | Kernel series | Ubuntu release |
+            |-------|--------------|----------------|
+            | `rootkat-ko-6.8.*-generic-x86_64.tar.gz`  | 6.8.x  | 24.04 LTS |
+            | `rootkat-ko-6.14.*-generic-x86_64.tar.gz` | 6.14.x | 25.04     |
+            | `rootkat-ko-6.17.*-generic-x86_64.tar.gz` | 6.17.x | 25.10     |
+            | `rootkat-ko-7.0.*-generic-x86_64.tar.gz`  | 7.0.x  | 26.04 LTS |
+
+            For other kernel versions, see the [build instructions](https://github.com/exec/rootkat#building).

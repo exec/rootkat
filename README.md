@@ -2,7 +2,7 @@
   <img src="rootkat.png" alt="rootkat" width="200">
 </p>
 
-An educational, open-source Linux 7.0+ rootkit. The goal is to teach how modern
+An educational, open-source Linux 6.8+ rootkit. The goal is to teach how modern
 kernel-mode stealth techniques actually work on contemporary kernels with CFI,
 FineIBT, lockdown, BTF/CO-RE, and BPF LSM — and to ship the matching detection
 documentation alongside.
@@ -10,7 +10,7 @@ documentation alongside.
 ## Status
 
 v0.13 — rootkit features verified end-to-end against multiple kernels
-in CI (matrix: Ubuntu 26.04 / kernel 7.0 + Ubuntu 24.04 LTS / kernel 6.x):
+in CI (matrix: Ubuntu 24.04 LTS / kernel 6.8 + Ubuntu 25.04 / kernel 6.14 + Ubuntu 25.10 / kernel 6.17 + Ubuntu 26.04 / kernel 7.0):
 
 | Feature                     | Mechanism                                     | Trigger                       |
 |-----------------------------|-----------------------------------------------|-------------------------------|
@@ -33,7 +33,7 @@ in CI (matrix: Ubuntu 26.04 / kernel 7.0 + Ubuntu 24.04 LTS / kernel 6.x):
 
 All techniques are documented in `docs/threat-model.md` with their detection
 artifacts. The matching test for each lives in `tests/qemu/test_*.sh` and runs
-inside a real kernel-7.0 QEMU VM in CI.
+inside a QEMU VM in CI across the supported kernel matrix.
 
 ## Design
 
@@ -56,7 +56,7 @@ inside a real kernel-7.0 QEMU VM in CI.
   When the Rust LKM isn't loaded (24.04 matrix entry, KERNEL_RUST=disabled),
   the weak symbols stay NULL and the C side gracefully skips. Pattern
   for porting further components to Rust as the kernel-Rust API grows.
-- **QEMU test harness** — drives a kernel-7.0 cloud image with cloud-init, runs
+- **QEMU test harness** — drives Ubuntu cloud images with cloud-init, runs
   each test inside the VM, propagates pass/fail. Auto-rewrites GRUB to put
   `bpf` in the LSM list before the file-hide test (Ubuntu 26.04's default
   cmdline omits it).
@@ -66,15 +66,17 @@ inside a real kernel-7.0 QEMU VM in CI.
 All builds run in a Docker container (works on macOS / non-Linux hosts):
 
     ./scripts/build.sh                              # Ubuntu 26.04 / kernel 7.0 (default)
-    UBUNTU_VERSION=24.04 ./scripts/build.sh         # Ubuntu 24.04 LTS / kernel 6.x
+    UBUNTU_VERSION=24.04 ./scripts/build.sh         # Ubuntu 24.04 LTS / kernel 6.8
+    UBUNTU_VERSION=25.04 ./scripts/build.sh         # Ubuntu 25.04 / kernel 6.14
+    UBUNTU_VERSION=25.10 ./scripts/build.sh         # Ubuntu 25.10 / kernel 6.17
 
 Requires Docker + buildx. Colima users: `brew install docker-buildx` once.
 The first invocation builds the container per Ubuntu version (~2 min);
 subsequent runs reuse the matching image. Force a rebuild with
 `BUILD_IMAGE_FORCE=1 ./scripts/build.sh`.
 
-**Multi-kernel matrix.** CI exercises the full suite against both
-Ubuntu 26.04 / kernel 7.0 and Ubuntu 24.04 LTS / kernel 6.x. The Rust
+**Multi-kernel matrix.** CI exercises the full suite against Ubuntu 24.04 (6.8),
+25.04 (6.14), 25.10 (6.17), and 26.04 (7.0). The Rust
 LKM is built only when the matching kernel ships a `linux-lib-rust-*`
 package (currently 26.04 only); on kernels without it, `rust/Makefile`
 no-ops and `test_rust_module.sh` skips itself cleanly.
