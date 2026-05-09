@@ -1,4 +1,6 @@
-# rootkat
+<p align="center">
+  <img src="rootkat.png" alt="rootkat" width="200">
+</p>
 
 An educational, open-source Linux 7.0+ rootkit. The goal is to teach how modern
 kernel-mode stealth techniques actually work on contemporary kernels with CFI,
