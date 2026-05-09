@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>rootkat — educational Linux 7.0+ rootkit</title>
+  <title>rootkat — educational Linux 6.8+ rootkit</title>
   <meta name="description" content="rootkat is an educational, open-source Linux rootkit demonstrating modern kernel-mode stealth techniques on contemporary kernels with CFI, FineIBT, lockdown, and BPF LSM.">
   <style>
     :root {
@@ -430,7 +430,7 @@
       <strong>detection documentation as a first-class deliverable</strong>.
     </p>
     <div class="badge-row">
-      <span class="badge red">Linux 7.0+</span>
+      <span class="badge red">Linux 6.8+</span>
       <span class="badge">C · eBPF · Rust</span>
       <span class="badge">ftrace IPMODIFY</span>
       <span class="badge">CO-RE BPF LSM</span>
@@ -576,7 +576,7 @@
         <div class="feature-icon">🦀</div>
         <div class="feature-body">
           <h3>Rust cross-module canary</h3>
-          <p><code>rootkat_rust_canary.ko</code> is a Rust LKM that exports <code>rootkat_canary_tick()</code> via <code>EXPORT_SYMBOL_GPL</code>. rootkat.ko calls it weak-linked — graceful degradation when the Rust LKM is absent.</p>
+          <p><code>rootkat_rust_canary.ko</code> exports <code>rootkat_canary_tick()</code> via <code>#[no_mangle]</code> + an <code>EXPORT_SYMBOL_GPL</code> C stub. rootkat.ko calls it at init via <code>__symbol_get()</code> — graceful degradation when the Rust LKM is absent.</p>
         </div>
       </div>
     </div>
@@ -699,7 +699,7 @@
         </tr>
         <tr>
           <td>Rust canary (cross-module)</td>
-          <td class="mech">EXPORT_SYMBOL_GPL stub + weak-link</td>
+          <td class="mech">EXPORT_SYMBOL_GPL stub + __symbol_get()</td>
           <td><span class="ci-badge">✓ 7.0 only</span></td>
         </tr>
       </tbody>
@@ -728,7 +728,7 @@
       </div>
       <div class="design-card">
         <h3><span class="lang-tag orange">Rust</span> Canary LKM</h3>
-        <p><code>rootkat_rust_canary.ko</code> exports <code>rootkat_canary_tick()</code> and <code>rootkat_canary_value()</code> via <code>EXPORT_SYMBOL_GPL</code> C stubs. The C LKM calls them <code>__attribute__((weak))</code> — graceful degradation on kernels without Rust support. Template for further C→Rust ports.</p>
+        <p><code>rootkat_rust_canary.ko</code> defines <code>rootkat_canary_tick()</code> and <code>rootkat_canary_value()</code> via <code>#[no_mangle] pub extern "C"</code>, exported via <code>EXPORT_SYMBOL_GPL</code> C stubs. rootkat.ko calls them at init via <code>__symbol_get()</code> — graceful degradation when the Rust LKM isn't loaded. Template for further C→Rust ports.</p>
       </div>
       <div class="design-card">
         <h3><span class="lang-tag">bash</span> QEMU test harness</h3>
