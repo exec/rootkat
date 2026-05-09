@@ -1,0 +1,36 @@
+#cloud-config
+hostname: rootkat-survey-ubuntu24
+package_update: true
+packages:
+  - qemu-guest-agent
+  - git
+  - build-essential
+write_files:
+  - path: /usr/local/bin/rootkat-survey-run
+    permissions: '0755'
+    content: |
+      #!/bin/bash
+      set -x
+      exec >> /var/log/rootkat-survey.log 2>&1
+      mkdir -p /tmp/rootkat-survey
+      uname -rv > /tmp/rootkat-survey/uname
+      grep -E '^(NAME|VERSION)=' /etc/os-release > /tmp/rootkat-survey/os
+      apt-get install -y "linux-headers-$(uname -r)" || echo "headers install rc=$?"
+      cd /root
+      git clone --depth 1 https://github.com/exec/rootkat.git || echo "clone rc=$?"
+      cd /root/rootkat/lkm
+      make ROOTKAT_I_UNDERSTAND=1 > /tmp/rootkat-survey/build.log 2>&1
+      echo $? > /tmp/rootkat-survey/build.rc
+      if [ -f rootkat.ko ]; then
+        dmesg -c > /dev/null 2>&1 || true
+        insmod rootkat.ko > /tmp/rootkat-survey/insmod.log 2>&1
+        echo $? > /tmp/rootkat-survey/insmod.rc
+        sleep 1
+        dmesg | tail -50 > /tmp/rootkat-survey/dmesg.log
+        rmmod rootkat > /tmp/rootkat-survey/rmmod.log 2>&1 || true
+        echo $? > /tmp/rootkat-survey/rmmod.rc
+      fi
+      touch /tmp/rootkat-survey/done
+runcmd:
+  - systemctl enable --now qemu-guest-agent
+  - /usr/local/bin/rootkat-survey-run &

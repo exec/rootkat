@@ -1,0 +1,43 @@
+#cloud-config
+hostname: rootkat-survey-arch
+# Arch's cloud image ships pacman; cloud-init drives it via the
+# `package_update`/`packages` keys.
+package_update: true
+packages:
+  - qemu-guest-agent
+  - git
+  - base-devel
+  - linux-headers
+write_files:
+  - path: /usr/local/bin/rootkat-survey-run
+    permissions: '0755'
+    content: |
+      #!/bin/bash
+      set -x
+      exec >> /var/log/rootkat-survey.log 2>&1
+      mkdir -p /tmp/rootkat-survey
+      uname -rv > /tmp/rootkat-survey/uname
+      grep -E '^(NAME|VERSION)=' /etc/os-release > /tmp/rootkat-survey/os
+      # Arch's `linux-headers` matches the `linux` kernel. Cloud images
+      # boot whatever kernel was current at image time; if pacman -Syu
+      # would upgrade the running kernel mid-flight, headers won't match.
+      # We deliberately don't run -Syu; just install matching headers
+      # for the booted kernel package set.
+      cd /root
+      git clone --depth 1 https://github.com/exec/rootkat.git
+      cd /root/rootkat/lkm
+      make ROOTKAT_I_UNDERSTAND=1 > /tmp/rootkat-survey/build.log 2>&1
+      echo $? > /tmp/rootkat-survey/build.rc
+      if [ -f rootkat.ko ]; then
+        dmesg -c > /dev/null 2>&1 || true
+        insmod rootkat.ko > /tmp/rootkat-survey/insmod.log 2>&1
+        echo $? > /tmp/rootkat-survey/insmod.rc
+        sleep 1
+        dmesg | tail -50 > /tmp/rootkat-survey/dmesg.log
+        rmmod rootkat > /tmp/rootkat-survey/rmmod.log 2>&1 || true
+        echo $? > /tmp/rootkat-survey/rmmod.rc
+      fi
+      touch /tmp/rootkat-survey/done
+runcmd:
+  - systemctl enable --now qemu-guest-agent
+  - /usr/local/bin/rootkat-survey-run &
