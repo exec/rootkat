@@ -2,7 +2,7 @@
 
 ## What rootkat is
 
-An educational LKM + eBPF rootkit targeting Linux 7.0+. It demonstrates
+An educational LKM + eBPF rootkit targeting Linux 6.8+. It demonstrates
 modern stealth techniques and documents how each is detected.
 
 ## What rootkat is NOT

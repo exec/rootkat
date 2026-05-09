@@ -68,9 +68,9 @@ the build user can use it.
 - **`rust/`** — `rootkat_rust_canary.ko`. Built against
   `linux-lib-rust-7.0.0-15-generic` + `rustc 1.93.1` from Ubuntu 26.04.
   Maintains `static AtomicU32` and exports `rootkat_canary_tick()` /
-  `rootkat_canary_value()` to other modules. rootkat.ko declares both
-  as `__attribute__((weak))` and calls tick() at init — graceful
-  degradation when the Rust LKM isn't loaded (24.04 matrix entry).
+  `rootkat_canary_value()` to other modules via `#[no_mangle]` +
+  `EXPORT_SYMBOL_GPL` C stubs. rootkat.ko calls them via `__symbol_get()`
+  at init — graceful degradation when the Rust LKM isn't loaded (24.04 matrix entry).
 - **`scripts/install.sh` / `uninstall.sh`** — systemd-based persistence.
 - **`tests/qemu/`** — `run.sh` drives a kernel-7.0 cloud image with
   cloud-init, virtio-9p mounts the project tree, runs one
@@ -249,7 +249,7 @@ kill(_, 62..64) (local syscall), IORING_OP_NOP magic user_data
 
 v0.11 added the Rust canary LKM (rootkat_rust_canary) — an
 AtomicU32 with two #[no_mangle] extern "C" functions exported via
-EXPORT_SYMBOL_GPL stubs. rootkat.ko calls them weak-linked at init
+EXPORT_SYMBOL_GPL stubs. rootkat.ko calls them via __symbol_get() at init
 so it gracefully degrades when the Rust LKM isn't loaded.
 
 Two control surfaces with parity now: the kill(2) magic-signal hijack
