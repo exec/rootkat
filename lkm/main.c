@@ -24,12 +24,12 @@
 
 /*
  * Cross-module Rust integration: rootkat_rust_canary.ko (built only on
- * matrix entries with KERNEL_RUST=enabled) exports these. Weak-linked
- * so when the Rust LKM isn't loaded the symbols stay NULL and we skip
- * the call gracefully — keeps the C module loadable on its own.
+ * matrix entries with KERNEL_RUST=enabled) exports rootkat_canary_tick.
+ * Use symbol_get() instead of __weak extern so the C module does not
+ * require GOT relocations (R_AARCH64_LD64_GOT_LO12_NC = 312) which are
+ * unsupported by some arm64 kernel builds.
  */
-extern u32 rootkat_canary_tick(void) __attribute__((weak));
-extern u32 rootkat_canary_value(void) __attribute__((weak));
+typedef u32 (*rootkat_canary_fn_t)(void);
 
 static int __init rootkat_init(void)
 {
@@ -37,12 +37,18 @@ static int __init rootkat_init(void)
 
 	pr_debug(ROOTKAT_TAG "loading\n");
 
-	if (rootkat_canary_tick) {
-		u32 ticks = rootkat_canary_tick();
+	{
+		rootkat_canary_fn_t fn =
+			(rootkat_canary_fn_t)__symbol_get("rootkat_canary_tick");
+		if (fn) {
+			u32 ticks = fn();
 
-		pr_debug(ROOTKAT_TAG "rust canary present, tick=%u\n", ticks);
-	} else {
-		pr_debug(ROOTKAT_TAG "rust canary not loaded (C-only build)\n");
+			pr_debug(ROOTKAT_TAG "rust canary present, tick=%u\n",
+				 ticks);
+			__symbol_put("rootkat_canary_tick");
+		} else {
+			pr_debug(ROOTKAT_TAG "rust canary not loaded (C-only build)\n");
+		}
 	}
 
 	rootkat_hidden_unix_paths_init();
