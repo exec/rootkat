@@ -1,0 +1,26 @@
+# Build environment for rootkat on Ubuntu/arm64.
+# Used for Apple Silicon local dev and arm64 target testing.
+ARG UBUNTU_VERSION=24.04
+FROM --platform=linux/arm64 ubuntu:${UBUNTU_VERSION}
+
+ENV DEBIAN_FRONTEND=noninteractive
+
+RUN apt-get update && apt-get install -y --no-install-recommends \
+        build-essential \
+        clang \
+        llvm \
+        libelf-dev \
+        libbpf-dev \
+        zlib1g-dev \
+        linux-headers-generic \
+        pkg-config \
+        ca-certificates \
+        binutils \
+ && (apt-get install -y --no-install-recommends bpftool 2>/dev/null \
+     || apt-get install -y --no-install-recommends linux-tools-generic) \
+ && BPFTOOL=$(find /usr/lib/linux-tools* -type f -name bpftool 2>/dev/null | head -n1) \
+ && [ -z "$BPFTOOL" ] && BPFTOOL=$(command -v bpftool) || true \
+ && [ -n "$BPFTOOL" ] && [ -x "$BPFTOOL" ] && ln -sf "$BPFTOOL" /usr/local/bin/bpftool \
+ && rm -rf /var/lib/apt/lists/*
+
+WORKDIR /work
