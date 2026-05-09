@@ -102,9 +102,54 @@ jobs:
           name: rootkat-ko-${{ steps.kver.outputs.kver }}
           path: ${{ steps.kver.outputs.asset }}
 
+  build-ko-ubuntu-arm64:
+    name: Build .ko (Ubuntu ${{ matrix.ubuntu_version }} / arm64)
+    runs-on: ubuntu-24.04-arm
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { ubuntu_version: "24.04" }   # 6.8.x
+          - { ubuntu_version: "25.10" }   # 6.17.x
+          - { ubuntu_version: "26.04" }   # 7.0.x
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build rootkat.ko (lkm only)
+        env:
+          UBUNTU_VERSION: ${{ matrix.ubuntu_version }}
+          ARCH: arm64
+          BUILD_IMAGE_FORCE: "1"
+          ROOTKAT_COMPONENTS: "lkm"
+        run: ./scripts/build.sh
+
+      - name: Determine kernel version from vermagic
+        id: kver
+        run: |
+          KVER=$(strings lkm/rootkat.ko | grep 'vermagic=' | awk -F= '{print $2}' | awk '{print $1}')
+          if [ -z "$KVER" ]; then
+            echo "ERROR: could not read vermagic from lkm/rootkat.ko" >&2
+            exit 1
+          fi
+          ASSET="rootkat-ko-${KVER}-aarch64.tar.gz"
+          echo "kver=$KVER"   >> "$GITHUB_OUTPUT"
+          echo "asset=$ASSET" >> "$GITHUB_OUTPUT"
+          echo "Built for kernel: $KVER"
+
+      - name: Package
+        run: |
+          ASSET="${{ steps.kver.outputs.asset }}"
+          tar -czf "$ASSET" -C lkm rootkat.ko
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: rootkat-ko-${{ steps.kver.outputs.kver }}-arm64
+          path: ${{ steps.kver.outputs.asset }}
+
   release:
     name: Publish release
-    needs: [build-ko-ubuntu, build-ko-fedora]
+    needs: [build-ko-ubuntu, build-ko-fedora, build-ko-ubuntu-arm64]
     runs-on: ubuntu-24.04
     permissions:
       contents: write
@@ -127,8 +172,9 @@ jobs:
 
             ```sh
             KVER=$(uname -r)
+            ARCH=$(uname -m)
             mkdir -p ~/.alcapwn/rootkat/$KVER
-            curl -fsSL https://github.com/exec/rootkat/releases/latest/download/rootkat-ko-${KVER}-x86_64.tar.gz \
+            curl -fsSL "https://github.com/exec/rootkat/releases/latest/download/rootkat-ko-${KVER}-${ARCH}.tar.gz" \
               | tar -xz -C ~/.alcapwn/rootkat/$KVER rootkat.ko
             ```
 
@@ -137,9 +183,14 @@ jobs:
 
             | Asset | Kernel series | Distro |
             |-------|--------------|--------|
-            | `rootkat-ko-6.8.*-generic-x86_64.tar.gz`       | 6.8.x  | Ubuntu 24.04 LTS |
-            | `rootkat-ko-6.14.*.fc42.x86_64-x86_64.tar.gz`  | 6.14.x | Fedora 42        |
-            | `rootkat-ko-6.17.*-generic-x86_64.tar.gz`      | 6.17.x | Ubuntu 25.10     |
-            | `rootkat-ko-7.0.*-generic-x86_64.tar.gz`       | 7.0.x  | Ubuntu 26.04 LTS |
+            | `rootkat-ko-6.8.*-generic-x86_64.tar.gz`       | 6.8.x  | Ubuntu 24.04 LTS     |
+            | `rootkat-ko-6.14.*.fc42.x86_64-x86_64.tar.gz`  | 6.14.x | Fedora 42            |
+            | `rootkat-ko-6.17.*-generic-x86_64.tar.gz`      | 6.17.x | Ubuntu 25.10         |
+            | `rootkat-ko-7.0.*-generic-x86_64.tar.gz`       | 7.0.x  | Ubuntu 26.04 LTS     |
+
+            ARM64 builds (drop-in replacement, same cache path logic):
+            | `rootkat-ko-6.8.*-generic-aarch64.tar.gz`      | 6.8.x  | Ubuntu 24.04 LTS / arm64 |
+            | `rootkat-ko-6.17.*-generic-aarch64.tar.gz`     | 6.17.x | Ubuntu 25.10 / arm64     |
+            | `rootkat-ko-7.0.*-generic-aarch64.tar.gz`      | 7.0.x  | Ubuntu 26.04 LTS / arm64 |
 
             For other kernel versions, see the [build instructions](https://github.com/exec/rootkat#building).

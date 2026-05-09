@@ -8,10 +8,16 @@ ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
 TEST_SCRIPT="${1:?usage: run.sh tests/qemu/test_*.sh}"
 UBUNTU_VERSION="${UBUNTU_VERSION:-26.04}"
 TIMEOUT_SECS="${TIMEOUT_SECS:-420}"
+ARCH="${ARCH:-amd64}"
 
 # Preflight: required tools and KVM access. Fail loudly with a clear message
 # rather than letting QEMU/cloud-localds print walls of opaque error.
-for tool in qemu-system-x86_64 cloud-localds timeout; do
+if [ "$ARCH" = "arm64" ]; then
+    QEMU_BIN="qemu-system-aarch64"
+else
+    QEMU_BIN="qemu-system-x86_64"
+fi
+for tool in "$QEMU_BIN" cloud-localds timeout; do
     command -v "$tool" >/dev/null \
         || { echo "missing tool: $tool" >&2; exit 2; }
 done
@@ -83,16 +89,31 @@ cloud-localds "$CLOUD_INIT_DIR/seed.img" \
 # Wrap QEMU in `timeout` so a hung VM fails the test instead of running
 # until the CI job's own timeout. `|| true` because QEMU's own exit code
 # is not what we care about — the rc file inside the VM is.
-timeout "$TIMEOUT_SECS" qemu-system-x86_64 \
-    -enable-kvm -cpu host -m 2048 -smp 2 \
-    -drive if=virtio,file="$IMG",format=qcow2,snapshot=on \
-    -drive if=virtio,file="$CLOUD_INIT_DIR/seed.img",format=raw \
-    -fsdev local,id=rootkat,path="$ROOT",security_model=none \
-    -device virtio-9p-pci,fsdev=rootkat,mount_tag=rootkat \
-    -fsdev local,id=result,path="$RESULT_DIR",security_model=none \
-    -device virtio-9p-pci,fsdev=result,mount_tag=result \
-    -nographic -serial mon:stdio \
-    || true
+if [ "$ARCH" = "arm64" ]; then
+    timeout "$TIMEOUT_SECS" qemu-system-aarch64 \
+        -enable-kvm -cpu host -m 2048 -smp 2 \
+        -M virt,gic-version=3 \
+        -bios /usr/share/qemu-efi-aarch64/QEMU_EFI.bin \
+        -drive if=virtio,file="$IMG",format=qcow2,snapshot=on \
+        -drive if=virtio,file="$CLOUD_INIT_DIR/seed.img",format=raw \
+        -fsdev local,id=rootkat,path="$ROOT",security_model=none \
+        -device virtio-9p-pci,fsdev=rootkat,mount_tag=rootkat \
+        -fsdev local,id=result,path="$RESULT_DIR",security_model=none \
+        -device virtio-9p-pci,fsdev=result,mount_tag=result \
+        -nographic -serial mon:stdio \
+        || true
+else
+    timeout "$TIMEOUT_SECS" qemu-system-x86_64 \
+        -enable-kvm -cpu host -m 2048 -smp 2 \
+        -drive if=virtio,file="$IMG",format=qcow2,snapshot=on \
+        -drive if=virtio,file="$CLOUD_INIT_DIR/seed.img",format=raw \
+        -fsdev local,id=rootkat,path="$ROOT",security_model=none \
+        -device virtio-9p-pci,fsdev=rootkat,mount_tag=rootkat \
+        -fsdev local,id=result,path="$RESULT_DIR",security_model=none \
+        -device virtio-9p-pci,fsdev=result,mount_tag=result \
+        -nographic -serial mon:stdio \
+        || true
+fi
 
 [ -s "$RESULT_DIR/log" ] && cat "$RESULT_DIR/log"
 

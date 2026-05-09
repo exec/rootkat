@@ -7,29 +7,39 @@ on:
 jobs:
   build-and-test:
     # GitHub Actions doesn't yet provide an ubuntu-26.04 runner label, so
-    # the runner OS is fixed at 24.04 — both matrix entries do their
+    # amd64 entries use ubuntu-24.04 — both matrix entries do their
     # actual kernel work inside the Docker build container and the
     # QEMU VM, which DO use the matrix's ubuntu_version.
-    runs-on: ubuntu-24.04
+    # ARM64 entries use ubuntu-24.04-arm.
+    runs-on: ${{ matrix.runner }}
     strategy:
       # Don't abort the whole matrix when one entry fails; we want to
       # see whether the failure is kernel-specific or universal.
       fail-fast: false
       matrix:
         include:
-          - { ubuntu_version: "26.04", kernel: "7.0",  kernel_rust: "enabled"  }
-          - { ubuntu_version: "24.04", kernel: "6.x",  kernel_rust: "disabled" }
-    name: "Ubuntu ${{ matrix.ubuntu_version }} / kernel ${{ matrix.kernel }}"
+          - { ubuntu_version: "26.04", kernel: "7.0",  kernel_rust: "enabled",  runner: "ubuntu-24.04",     arch: "amd64" }
+          - { ubuntu_version: "24.04", kernel: "6.x",  kernel_rust: "disabled", runner: "ubuntu-24.04",     arch: "amd64" }
+          - { ubuntu_version: "24.04", kernel: "6.x",  kernel_rust: "disabled", runner: "ubuntu-24.04-arm", arch: "arm64" }
+          - { ubuntu_version: "26.04", kernel: "7.0",  kernel_rust: "disabled", runner: "ubuntu-24.04-arm", arch: "arm64" }
+    name: "Ubuntu ${{ matrix.ubuntu_version }} / kernel ${{ matrix.kernel }} (${{ matrix.arch }})"
     env:
       UBUNTU_VERSION: ${{ matrix.ubuntu_version }}
       KERNEL_RUST: ${{ matrix.kernel_rust }}
+      ARCH: ${{ matrix.arch }}
     steps:
       - uses: actions/checkout@v4
 
       - name: Install host deps
+        env:
+          MATRIX_ARCH: ${{ matrix.arch }}
         run: |
           sudo apt-get update
-          sudo apt-get install -y qemu-system-x86 cloud-image-utils
+          if [ "$MATRIX_ARCH" = "arm64" ]; then
+            sudo apt-get install -y qemu-system-arm cloud-image-utils qemu-efi-aarch64
+          else
+            sudo apt-get install -y qemu-system-x86 cloud-image-utils
+          fi
 
       - name: Enable KVM access for the runner user
         run: |

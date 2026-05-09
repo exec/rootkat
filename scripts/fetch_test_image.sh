@@ -6,13 +6,14 @@
 set -euo pipefail
 
 VERSION="${1:-${UBUNTU_VERSION:-26.04}}"
+ARCH="${ARCH:-amd64}"
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 IMG_DIR="$ROOT/tests/qemu/images"
 mkdir -p "$IMG_DIR"
 
-IMG_URL="https://cloud-images.ubuntu.com/releases/${VERSION}/release/ubuntu-${VERSION}-server-cloudimg-amd64.img"
-IMG_PATH="$IMG_DIR/ubuntu-${VERSION}.img"
+IMG_URL="https://cloud-images.ubuntu.com/releases/${VERSION}/release/ubuntu-${VERSION}-server-cloudimg-${ARCH}.img"
+IMG_PATH="$IMG_DIR/ubuntu-${VERSION}-${ARCH}.img"
 
 if [ ! -f "$IMG_PATH" ]; then
     echo "[fetch] Downloading Ubuntu ${VERSION} cloud image..." >&2

