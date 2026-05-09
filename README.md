@@ -70,14 +70,19 @@ All builds run in a Docker container (works on macOS / non-Linux hosts):
     UBUNTU_VERSION=24.04 ./scripts/build.sh         # Ubuntu 24.04 LTS / kernel 6.8
     UBUNTU_VERSION=25.10 ./scripts/build.sh         # Ubuntu 25.10 / kernel 6.17
 
+    # Fedora builds (produces rootkat.ko for Fedora's kernel flavor):
+    DISTRO=fedora ./scripts/build.sh                # Fedora 42 / kernel 6.14.x (latest)
+    DISTRO=fedora KERNEL_VERSION=6.14.0-63.fc42.x86_64 ./scripts/build.sh  # pin exact version
+
 Requires Docker + buildx. Colima users: `brew install docker-buildx` once.
-The first invocation builds the container per Ubuntu version (~2 min);
+The first invocation builds the container per target (~2–10 min);
 subsequent runs reuse the matching image. Force a rebuild with
 `BUILD_IMAGE_FORCE=1 ./scripts/build.sh`.
 
 Note: Ubuntu 25.04 (6.14.x) is not supported — it reached EOL January 2026
 and its kernel does not export `const_current_task` / `validate_usercopy_range`,
-causing modpost failures.
+causing modpost failures. Fedora 42 ships 6.14.x with the correct exports
+and builds cleanly.
 
 **Multi-kernel matrix.** CI exercises the full suite against Ubuntu 24.04 (6.8)
 and 26.04 (7.0). The Rust LKM is built only when the matching kernel ships a

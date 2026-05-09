@@ -1,0 +1,29 @@
+# Build environment for rootkat on Fedora.
+# FEDORA_VERSION: Fedora release number (default 42)
+# KERNEL_VERSION: exact kernel-devel version to install (default: latest)
+#   Set to e.g. "6.14.0-63.fc42.x86_64" to match a specific cloud image.
+ARG FEDORA_VERSION=42
+FROM --platform=linux/amd64 fedora:${FEDORA_VERSION}
+
+ARG KERNEL_VERSION=
+
+RUN dnf install -y \
+        gcc \
+        make \
+        clang \
+        llvm \
+        elfutils-libelf-devel \
+        libbpf-devel \
+        zlib-devel \
+        kernel-headers \
+        pkgconfig \
+        ca-certificates \
+        bpftool \
+ && if [ -n "$KERNEL_VERSION" ]; then \
+        dnf install -y "kernel-devel-${KERNEL_VERSION}"; \
+    else \
+        dnf install -y kernel-devel; \
+    fi \
+ && dnf clean all
+
+WORKDIR /work
