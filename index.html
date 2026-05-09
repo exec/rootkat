@@ -1,0 +1,788 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>rootkat — educational Linux 7.0+ rootkit</title>
+  <meta name="description" content="rootkat is an educational, open-source Linux rootkit demonstrating modern kernel-mode stealth techniques on contemporary kernels with CFI, FineIBT, lockdown, and BPF LSM.">
+  <style>
+    :root {
+      --bg:       #0d1117;
+      --surface:  #161b22;
+      --border:   #21262d;
+      --border2:  #30363d;
+      --red:      #c0392b;
+      --red-dim:  #922b21;
+      --red-glow: rgba(192, 57, 43, 0.15);
+      --text:     #e6edf3;
+      --muted:    #8b949e;
+      --green:    #3fb950;
+      --mono:     'JetBrains Mono', 'Fira Code', 'Cascadia Code', 'Consolas', monospace;
+    }
+
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+      font-size: 16px;
+      line-height: 1.6;
+      min-height: 100vh;
+    }
+
+    a { color: var(--red); text-decoration: none; }
+    a:hover { text-decoration: underline; color: #e74c3c; }
+
+    /* ── layout ─────────────────────────────────────────── */
+    .container {
+      max-width: 860px;
+      margin: 0 auto;
+      padding: 0 24px;
+    }
+
+    /* ── hero ───────────────────────────────────────────── */
+    .hero {
+      padding: 80px 0 60px;
+      text-align: center;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .hero img.logo {
+      width: 200px;
+      height: auto;
+      margin-bottom: 24px;
+      filter: drop-shadow(0 0 28px rgba(192, 57, 43, 0.45));
+    }
+
+    .hero-version {
+      font-family: var(--mono);
+      font-size: 0.78rem;
+      color: var(--muted);
+      letter-spacing: 0.08em;
+      margin-bottom: 28px;
+    }
+
+    .hero .tagline {
+      font-size: 1.2rem;
+      color: var(--muted);
+      max-width: 520px;
+      margin: 0 auto 32px;
+    }
+
+    .hero .tagline strong {
+      color: var(--text);
+      font-weight: 500;
+    }
+
+    .badge-row {
+      display: flex;
+      gap: 10px;
+      justify-content: center;
+      flex-wrap: wrap;
+      margin-bottom: 36px;
+    }
+
+    .badge {
+      background: var(--surface);
+      border: 1px solid var(--border2);
+      border-radius: 20px;
+      padding: 4px 14px;
+      font-size: 0.78rem;
+      color: var(--muted);
+      font-family: var(--mono);
+      letter-spacing: 0.02em;
+    }
+
+    .badge.red { border-color: var(--red-dim); color: #e74c3c; }
+
+    .btn-row {
+      display: flex;
+      gap: 12px;
+      justify-content: center;
+      flex-wrap: wrap;
+    }
+
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 10px 22px;
+      border-radius: 6px;
+      font-size: 0.9rem;
+      font-weight: 500;
+      transition: filter 0.15s, transform 0.1s;
+      cursor: pointer;
+    }
+
+    .btn:hover { filter: brightness(1.1); transform: translateY(-1px); text-decoration: none; }
+    .btn:active { transform: translateY(0); }
+
+    .btn-primary {
+      background: var(--red);
+      color: #fff;
+      border: 1px solid var(--red-dim);
+    }
+
+    .btn-secondary {
+      background: var(--surface);
+      color: var(--text);
+      border: 1px solid var(--border2);
+    }
+
+    /* ── sections ───────────────────────────────────────── */
+    section {
+      padding: 56px 0;
+      border-bottom: 1px solid var(--border);
+    }
+
+    section:last-of-type { border-bottom: none; }
+
+    .section-label {
+      font-size: 0.72rem;
+      font-family: var(--mono);
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      color: var(--red);
+      margin-bottom: 10px;
+    }
+
+    h2 {
+      font-size: 1.5rem;
+      font-weight: 600;
+      color: var(--text);
+      margin-bottom: 16px;
+    }
+
+    p { color: var(--muted); margin-bottom: 14px; }
+    p:last-child { margin-bottom: 0; }
+    p strong { color: var(--text); }
+
+    code {
+      font-family: var(--mono);
+      font-size: 0.85em;
+      background: #010409;
+      border: 1px solid var(--border);
+      border-radius: 3px;
+      padding: 1px 6px;
+      color: #79c0ff;
+    }
+
+    /* ── install cards ──────────────────────────────────── */
+    .install-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 16px;
+      margin-top: 28px;
+    }
+
+    @media (max-width: 600px) {
+      .install-grid { grid-template-columns: 1fr; }
+    }
+
+    .install-card {
+      background: var(--surface);
+      border: 1px solid var(--border2);
+      border-radius: 8px;
+      padding: 20px 20px 16px;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .install-card::before {
+      content: '';
+      position: absolute;
+      top: 0; left: 0; right: 0;
+      height: 2px;
+      background: var(--red);
+    }
+
+    .install-card .method {
+      font-size: 0.75rem;
+      font-family: var(--mono);
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: var(--muted);
+      margin-bottom: 12px;
+    }
+
+    pre {
+      background: #010409;
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: 14px 16px;
+      font-family: var(--mono);
+      font-size: 0.82rem;
+      line-height: 1.5;
+      overflow-x: auto;
+      margin-top: 10px;
+      white-space: pre;
+    }
+
+    .cmd-prompt  { color: var(--red); user-select: none; }
+    .cmd-text    { color: #79c0ff; }
+    .cmd-arg     { color: #a8daab; }
+    .cmd-flag    { color: #d2a8ff; }
+    .cmd-comment { color: var(--muted); }
+    .cmd-sig     { color: #ffa657; }
+
+    .install-card.wide { grid-column: 1 / -1; }
+
+    /* ── features ───────────────────────────────────────── */
+    .features {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 20px;
+      margin-top: 28px;
+    }
+
+    @media (max-width: 600px) {
+      .features { grid-template-columns: 1fr; }
+    }
+
+    .feature {
+      display: flex;
+      gap: 14px;
+      align-items: flex-start;
+    }
+
+    .feature-icon {
+      flex-shrink: 0;
+      width: 32px;
+      height: 32px;
+      background: var(--red-glow);
+      border: 1px solid var(--red-dim);
+      border-radius: 6px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 0.9rem;
+      margin-top: 2px;
+    }
+
+    .feature-body h3 {
+      font-size: 0.95rem;
+      font-weight: 600;
+      color: var(--text);
+      margin-bottom: 4px;
+    }
+
+    .feature-body p {
+      font-size: 0.875rem;
+      color: var(--muted);
+      margin: 0;
+    }
+
+    /* ── status table ───────────────────────────────────── */
+    .status-table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 24px;
+      font-size: 0.85rem;
+    }
+
+    .status-table th {
+      text-align: left;
+      padding: 10px 14px;
+      border-bottom: 1px solid var(--border2);
+      color: var(--muted);
+      font-weight: 500;
+      font-family: var(--mono);
+      font-size: 0.75rem;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+    }
+
+    .status-table td {
+      padding: 10px 14px;
+      border-bottom: 1px solid var(--border);
+      color: var(--muted);
+      vertical-align: top;
+    }
+
+    .status-table tr:last-child td { border-bottom: none; }
+
+    .status-table td:first-child { color: var(--text); }
+
+    .status-table .mech {
+      font-family: var(--mono);
+      font-size: 0.78rem;
+      color: #79c0ff;
+    }
+
+    .ci-badge {
+      display: inline-block;
+      font-size: 0.65rem;
+      font-family: var(--mono);
+      padding: 2px 7px;
+      border-radius: 4px;
+      background: rgba(63, 185, 80, 0.12);
+      border: 1px solid rgba(63, 185, 80, 0.3);
+      color: var(--green);
+      white-space: nowrap;
+    }
+
+    /* ── usage block ────────────────────────────────────── */
+    .usage-block {
+      background: var(--surface);
+      border: 1px solid var(--border2);
+      border-radius: 8px;
+      padding: 24px;
+      margin-top: 24px;
+    }
+
+    .usage-block pre {
+      background: #010409;
+      margin-top: 0;
+    }
+
+    /* ── design cards ───────────────────────────────────── */
+    .design-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 16px;
+      margin-top: 28px;
+    }
+
+    @media (max-width: 600px) {
+      .design-grid { grid-template-columns: 1fr; }
+    }
+
+    .design-card {
+      background: var(--surface);
+      border: 1px solid var(--border2);
+      border-radius: 8px;
+      padding: 20px;
+    }
+
+    .design-card h3 {
+      font-size: 0.9rem;
+      font-weight: 600;
+      color: var(--text);
+      margin-bottom: 8px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .design-card p {
+      font-size: 0.85rem;
+      color: var(--muted);
+      margin: 0;
+    }
+
+    .lang-tag {
+      font-family: var(--mono);
+      font-size: 0.65rem;
+      padding: 2px 7px;
+      border-radius: 4px;
+      background: var(--red-glow);
+      border: 1px solid var(--red-dim);
+      color: #e74c3c;
+    }
+
+    .lang-tag.blue {
+      background: rgba(121, 192, 255, 0.1);
+      border-color: rgba(121, 192, 255, 0.3);
+      color: #79c0ff;
+    }
+
+    .lang-tag.orange {
+      background: rgba(255, 166, 87, 0.1);
+      border-color: rgba(255, 166, 87, 0.3);
+      color: #ffa657;
+    }
+
+    /* ── footer ─────────────────────────────────────────── */
+    footer {
+      padding: 32px 0;
+      text-align: center;
+      color: var(--muted);
+      font-size: 0.85rem;
+      border-top: 1px solid var(--border);
+    }
+
+    footer a { color: var(--muted); }
+    footer a:hover { color: var(--red); }
+
+    .footer-inner {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 12px;
+    }
+
+    .footer-links { display: flex; gap: 20px; }
+  </style>
+</head>
+<body>
+
+<!-- ── Hero ──────────────────────────────────────────────── -->
+<div class="hero">
+  <div class="container">
+    <img src="rootkat.png" alt="rootkat" class="logo">
+    <div class="hero-version">v0.13</div>
+    <p class="tagline">
+      An <strong>educational, open-source</strong> Linux rootkit demonstrating
+      modern kernel-mode stealth on real 7.0 kernels — with
+      <strong>detection documentation as a first-class deliverable</strong>.
+    </p>
+    <div class="badge-row">
+      <span class="badge red">Linux 7.0+</span>
+      <span class="badge">C · eBPF · Rust</span>
+      <span class="badge">ftrace IPMODIFY</span>
+      <span class="badge">CO-RE BPF LSM</span>
+      <span class="badge">MIT license</span>
+    </div>
+    <div class="btn-row">
+      <a class="btn btn-primary" href="https://github.com/exec/rootkat">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+          <path d="M12 .3a12 12 0 0 0-3.8 23.4c.6.1.8-.3.8-.6v-2c-3.3.7-4-1.6-4-1.6-.6-1.4-1.4-1.8-1.4-1.8-1-.7.1-.7.1-.7 1.2.1 1.8 1.2 1.8 1.2 1 1.8 2.8 1.3 3.5 1 .1-.8.4-1.3.7-1.6-2.7-.3-5.5-1.3-5.5-5.9 0-1.3.5-2.4 1.2-3.2 0-.4-.5-1.6.2-3.2 0 0 1-.3 3.3 1.2a11.5 11.5 0 0 1 6 0C17 4.7 18 5 18 5c.7 1.6.2 2.8.1 3.2.8.8 1.2 1.9 1.2 3.2 0 4.6-2.8 5.6-5.5 5.9.4.4.8 1.1.8 2.2v3.3c0 .3.2.7.8.6A12 12 0 0 0 12 .3z"/>
+        </svg>
+        View on GitHub
+      </a>
+      <a class="btn btn-secondary" href="https://github.com/exec/rootkat/blob/main/docs/threat-model.md">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+          <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8l-6-6zm-1 1.5L18.5 9H13V3.5zM6 20V4h5v7h7v9H6z"/>
+        </svg>
+        Threat model
+      </a>
+    </div>
+  </div>
+</div>
+
+<!-- ── Build ─────────────────────────────────────────────── -->
+<section>
+  <div class="container">
+    <div class="section-label">getting started</div>
+    <h2>Build</h2>
+    <p>
+      All builds run in a Docker container — works on macOS and non-Linux hosts.
+      The container pulls the exact kernel headers for the chosen Ubuntu release
+      so the module is always compiled against the right <code>KDIR</code>.
+    </p>
+
+    <div class="install-grid">
+
+      <div class="install-card">
+        <div class="method">Ubuntu 26.04 / kernel 7.0 (default)</div>
+        <pre><span class="cmd-prompt">$</span> <span class="cmd-text">git</span> <span class="cmd-arg">clone</span> https://github.com/exec/rootkat
+<span class="cmd-prompt">$</span> <span class="cmd-text">cd</span> rootkat
+<span class="cmd-prompt">$</span> <span class="cmd-text">./scripts/build.sh</span></pre>
+      </div>
+
+      <div class="install-card">
+        <div class="method">Ubuntu 24.04 LTS / kernel 6.x</div>
+        <pre><span class="cmd-prompt">$</span> <span class="cmd-text">UBUNTU_VERSION</span>=<span class="cmd-arg">24.04</span> <span class="cmd-text">./scripts/build.sh</span>
+
+<span class="cmd-comment"># Force container rebuild:</span>
+<span class="cmd-prompt">$</span> <span class="cmd-text">BUILD_IMAGE_FORCE</span>=<span class="cmd-arg">1</span> <span class="cmd-text">./scripts/build.sh</span></pre>
+      </div>
+
+      <div class="install-card wide">
+        <div class="method">load and verify</div>
+        <pre><span class="cmd-comment"># Requires root + kernel with no module signing enforcement</span>
+<span class="cmd-prompt">#</span> <span class="cmd-text">insmod</span> <span class="cmd-arg">lkm/rootkat.ko</span>
+<span class="cmd-prompt">#</span> <span class="cmd-text">cat</span> <span class="cmd-arg">/proc/modules</span> | <span class="cmd-text">grep</span> rootkat   <span class="cmd-comment"># → nothing (self-hidden)</span>
+<span class="cmd-prompt">#</span> <span class="cmd-text">rmmod</span> <span class="cmd-arg">rootkat</span></pre>
+      </div>
+
+    </div>
+
+    <p style="margin-top: 20px;">
+      Requires Docker + buildx. Colima users: <code>brew install docker-buildx</code> once.
+      The Makefile requires <code>ROOTKAT_I_UNDERSTAND=1</code> to build — intentional friction that <code>build.sh</code> sets for you.
+    </p>
+  </div>
+</section>
+
+<!-- ── Features ──────────────────────────────────────────── -->
+<section>
+  <div class="container">
+    <div class="section-label">capabilities</div>
+    <h2>What it demonstrates</h2>
+    <p>
+      14 stealth techniques across three layers — LKM, CO-RE eBPF, and Rust.
+      Every technique ships with matching detection artifacts in <code>docs/threat-model.md</code>.
+    </p>
+
+    <div class="features">
+      <div class="feature">
+        <div class="feature-icon">👻</div>
+        <div class="feature-body">
+          <h3>Module self-hide</h3>
+          <p>ftrace hooks on <code>m_show</code> and <code>filldir64</code> remove rootkat from <code>/proc/modules</code>, <code>lsmod</code>, and <code>/sys/module/</code> enumeration.</p>
+        </div>
+      </div>
+      <div class="feature">
+        <div class="feature-icon">⬆️</div>
+        <div class="feature-body">
+          <h3>Privilege escalation</h3>
+          <p>Magic signal (<code>kill(0, 64)</code>) rewrites all credential fields of the calling process to root using <code>prepare_creds</code> / <code>commit_creds</code>.</p>
+        </div>
+      </div>
+      <div class="feature">
+        <div class="feature-icon">🕵️</div>
+        <div class="feature-body">
+          <h3>Process hide</h3>
+          <p>Adds a PID to a spinlock-protected hidden list. <code>filldir64</code> skips matching entries so the process disappears from <code>ps</code>, <code>/proc</code>, and <code>top</code>.</p>
+        </div>
+      </div>
+      <div class="feature">
+        <div class="feature-icon">🌐</div>
+        <div class="feature-body">
+          <h3>Network port hide</h3>
+          <p>Hooks <code>tcp4/6_seq_show</code>, <code>udp4/6_seq_show</code>, and <code>inet_sk_diag_fill</code> (NETLINK_SOCK_DIAG) — hides ports from both <code>/proc/net/tcp</code> and <code>ss</code>.</p>
+        </div>
+      </div>
+      <div class="feature">
+        <div class="feature-icon">🔇</div>
+        <div class="feature-body">
+          <h3>dmesg / printk self-hide</h3>
+          <p>ftrace hook on <code>vprintk_emit</code> scans every log line before it reaches the ring buffer — any line containing "rootkat" is dropped before <code>dmesg</code>, <code>/dev/kmsg</code>, or journald see it.</p>
+        </div>
+      </div>
+      <div class="feature">
+        <div class="feature-icon">📁</div>
+        <div class="feature-body">
+          <h3>File hide via eBPF LSM</h3>
+          <p>CO-RE BPF program on <code>lsm/file_open</code> returns <code>-ENOENT</code> for registered paths — portable across kernel versions via BTF relocations.</p>
+        </div>
+      </div>
+      <div class="feature">
+        <div class="feature-icon">🔌</div>
+        <div class="feature-body">
+          <h3>AF_UNIX socket hide</h3>
+          <p>Hooks both <code>unix_seq_show</code> and the module-private <code>sk_diag_fill</code> in <code>unix_diag</code> — sockets with a <code>.rootkat</code> path prefix are invisible to <code>ss -lx</code> and <code>/proc/net/unix</code>.</p>
+        </div>
+      </div>
+      <div class="feature">
+        <div class="feature-icon">🔄</div>
+        <div class="feature-body">
+          <h3>io_uring covert channel</h3>
+          <p>Hooks <code>io_issue_sqe</code> — an <code>IORING_OP_NOP</code> SQE with a magic <code>user_data</code> prefix triggers privesc / hide-pid / hide-port without a kill syscall.</p>
+        </div>
+      </div>
+      <div class="feature">
+        <div class="feature-icon">📡</div>
+        <div class="feature-body">
+          <h3>Netfilter covert channel</h3>
+          <p>Registers a <code>NF_INET_PRE_ROUTING</code> hook — a 16-byte magic UDP frame reaches the rootkit from any source with no open listener required.</p>
+        </div>
+      </div>
+      <div class="feature">
+        <div class="feature-icon">🦀</div>
+        <div class="feature-body">
+          <h3>Rust cross-module canary</h3>
+          <p><code>rootkat_rust_canary.ko</code> is a Rust LKM that exports <code>rootkat_canary_tick()</code> via <code>EXPORT_SYMBOL_GPL</code>. rootkat.ko calls it weak-linked — graceful degradation when the Rust LKM is absent.</p>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ── Control surface ───────────────────────────────────── -->
+<section>
+  <div class="container">
+    <div class="section-label">control surface</div>
+    <h2>Three ways to reach it</h2>
+    <p>
+      All three channels call into the same <code>magic_actions.c</code> registry —
+      one implementation, three delivery paths. The teaching artifact: an auditd
+      ruleset watching <code>kill</code> catches the first but not the second or third.
+    </p>
+
+    <div class="usage-block">
+      <pre><span class="cmd-comment"># ── Channel 1: magic kill(2) signals ─────────────────────────────────</span>
+<span class="cmd-prompt">$</span> <span class="cmd-text">kill</span> <span class="cmd-sig">-64</span> <span class="cmd-arg">0</span>         <span class="cmd-comment"># SIGRTMAX   — escalate calling process to root</span>
+<span class="cmd-prompt">$</span> <span class="cmd-text">kill</span> <span class="cmd-sig">-63</span> <span class="cmd-arg">0</span>         <span class="cmd-comment"># SIGRTMAX-1 — add calling PID to hidden list</span>
+<span class="cmd-prompt">$</span> <span class="cmd-text">kill</span> <span class="cmd-sig">-62</span> <span class="cmd-arg">4444</span>      <span class="cmd-comment"># SIGRTMAX-2 — hide local port 4444 from /proc/net/tcp</span>
+
+<span class="cmd-comment"># ── Channel 2: io_uring IORING_OP_NOP ────────────────────────────────</span>
+<span class="cmd-comment"># SQE.user_data top 32 bits = 0x72_6b_61_74 ("rkat"), low byte = action</span>
+<span class="cmd-comment"># submitted via io_uring_enter(2) — invisible to kill auditing</span>
+
+<span class="cmd-comment"># ── Channel 3: inbound UDP magic frame ───────────────────────────────</span>
+<span class="cmd-comment"># Send a 16-byte frame starting with "rootkat\0" to any port on the target</span>
+<span class="cmd-prompt">$</span> <span class="cmd-text">printf</span> <span class="cmd-arg">'rootkat\x00\x01\x00\x00\x00\x00\x00\x00\x00'</span> | <span class="cmd-text">nc</span> <span class="cmd-flag">-uq1</span> <span class="cmd-arg">target 1234</span></pre>
+    </div>
+  </div>
+</section>
+
+<!-- ── Status table ──────────────────────────────────────── -->
+<section>
+  <div class="container">
+    <div class="section-label">v0.13 status</div>
+    <h2>All techniques, CI-verified</h2>
+    <p>
+      CI matrix: Ubuntu 26.04 / kernel 7.0 (13/13 tests pass) and Ubuntu 24.04 LTS /
+      kernel 6.x (12/13 — Rust canary skipped, no <code>linux-lib-rust</code> on 6.x).
+      A cross-distro survey on Debian 13 (6.12), Fedora 42 (6.14), and Ubuntu 24.04 (6.8)
+      is also green post-<code>-fno-optimize-sibling-calls</code>.
+    </p>
+
+    <table class="status-table">
+      <thead>
+        <tr>
+          <th>Feature</th>
+          <th>Mechanism</th>
+          <th>CI</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>Self-hide from <code>/proc/modules</code></td>
+          <td class="mech">ftrace → m_show</td>
+          <td><span class="ci-badge">✓ both</span></td>
+        </tr>
+        <tr>
+          <td>Self-hide from <code>/sys/module/</code></td>
+          <td class="mech">ftrace → filldir64</td>
+          <td><span class="ci-badge">✓ both</span></td>
+        </tr>
+        <tr>
+          <td>File hide</td>
+          <td class="mech">CO-RE eBPF lsm/file_open</td>
+          <td><span class="ci-badge">✓ both</span></td>
+        </tr>
+        <tr>
+          <td>Privesc to root</td>
+          <td class="mech">ftrace → __x64_sys_kill</td>
+          <td><span class="ci-badge">✓ both</span></td>
+        </tr>
+        <tr>
+          <td>Process hide</td>
+          <td class="mech">ftrace → filldir64</td>
+          <td><span class="ci-badge">✓ both</span></td>
+        </tr>
+        <tr>
+          <td>TCP port hide (v4 + v6, /proc + ss)</td>
+          <td class="mech">tcp4/6_seq_show · inet_sk_diag_fill</td>
+          <td><span class="ci-badge">✓ both</span></td>
+        </tr>
+        <tr>
+          <td>UDP port hide (v4 + v6)</td>
+          <td class="mech">udp4/6_seq_show</td>
+          <td><span class="ci-badge">✓ both</span></td>
+        </tr>
+        <tr>
+          <td>AF_UNIX socket hide</td>
+          <td class="mech">unix_seq_show · unix_diag sk_diag_fill</td>
+          <td><span class="ci-badge">✓ both</span></td>
+        </tr>
+        <tr>
+          <td>BPF program self-hide</td>
+          <td class="mech">ftrace → __x64_sys_bpf (BPF_PROG_GET_NEXT_ID)</td>
+          <td><span class="ci-badge">✓ both</span></td>
+        </tr>
+        <tr>
+          <td>Audit log suppression</td>
+          <td class="mech">ftrace → audit_log_start</td>
+          <td><span class="ci-badge">code-only</span></td>
+        </tr>
+        <tr>
+          <td>io_uring covert channel</td>
+          <td class="mech">ftrace → io_issue_sqe</td>
+          <td><span class="ci-badge">✓ both</span></td>
+        </tr>
+        <tr>
+          <td>Netfilter covert channel</td>
+          <td class="mech">nf_register_net_hook (NF_INET_PRE_ROUTING)</td>
+          <td><span class="ci-badge">✓ both</span></td>
+        </tr>
+        <tr>
+          <td>dmesg / printk self-hide</td>
+          <td class="mech">ftrace → vprintk_emit</td>
+          <td><span class="ci-badge">✓ both</span></td>
+        </tr>
+        <tr>
+          <td>Rust canary (cross-module)</td>
+          <td class="mech">EXPORT_SYMBOL_GPL stub + weak-link</td>
+          <td><span class="ci-badge">✓ 7.0 only</span></td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<!-- ── Design ─────────────────────────────────────────────── -->
+<section>
+  <div class="container">
+    <div class="section-label">architecture</div>
+    <h2>Three-layer design</h2>
+    <p>
+      Each layer does what the others structurally cannot.
+      The stack is intentionally thin — every line exists to teach one thing.
+    </p>
+
+    <div class="design-grid">
+      <div class="design-card">
+        <h3><span class="lang-tag">C</span> Kernel module (LKM)</h3>
+        <p>ftrace IPMODIFY hooks with a kprobe-bootstrapped <code>kallsyms_lookup_name</code> (unexported since 5.7). Multi-candidate resolver handles symbol rename drift across kernel versions. Does the things eBPF cannot: kernel-text rewriting, self-hiding, syscall return-value patching.</p>
+      </div>
+      <div class="design-card">
+        <h3><span class="lang-tag blue">eBPF</span> CO-RE programs</h3>
+        <p>LSM hooks loaded via libbpf with BTF-based CO-RE relocations — survives rebuilds across kernel versions without recompilation. Today: one program (<code>lsm/file_open</code> file hide). Intentionally narrow because most rootkit mechanics need text-rewriting.</p>
+      </div>
+      <div class="design-card">
+        <h3><span class="lang-tag orange">Rust</span> Canary LKM</h3>
+        <p><code>rootkat_rust_canary.ko</code> exports <code>rootkat_canary_tick()</code> and <code>rootkat_canary_value()</code> via <code>EXPORT_SYMBOL_GPL</code> C stubs. The C LKM calls them <code>__attribute__((weak))</code> — graceful degradation on kernels without Rust support. Template for further C→Rust ports.</p>
+      </div>
+      <div class="design-card">
+        <h3><span class="lang-tag">bash</span> QEMU test harness</h3>
+        <p>Each <code>tests/qemu/test_*.sh</code> boots a real kernel-7.0 cloud image with cloud-init, mounts the project via virtio-9p, and asserts behaviour inside the VM. CI exercises the full suite on both Ubuntu 26.04/7.0 and Ubuntu 24.04 LTS/6.x.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ── Detection ──────────────────────────────────────────── -->
+<section>
+  <div class="container">
+    <div class="section-label">detection</div>
+    <h2>Built to be caught</h2>
+    <p>
+      <code>docs/threat-model.md</code> ships alongside every stealth feature — not as an
+      afterthought. Every hook has a corresponding detection artifact documented: ftrace
+      entries in <code>/sys/kernel/debug/tracing/enabled_functions</code>, kernel audit
+      records, forensic filesystem artifacts, and behavioral anomalies.
+    </p>
+    <p>
+      <strong>A defender who reads the threat model can build a rootkat detector in an afternoon.</strong>
+      That's the point.
+    </p>
+
+    <div class="usage-block">
+      <pre><span class="cmd-comment"># Sample detection artifacts</span>
+
+<span class="cmd-comment"># ftrace hooks are always observable:</span>
+<span class="cmd-prompt">$</span> <span class="cmd-text">cat</span> <span class="cmd-arg">/sys/kernel/debug/tracing/enabled_functions</span>
+<span class="cmd-comment">m_show [rootkat]</span>
+<span class="cmd-comment">filldir64 [rootkat]</span>
+<span class="cmd-comment">__x64_sys_kill [rootkat]</span>
+<span class="cmd-comment">vprintk_emit [rootkat]  ← even the printk hook can't hide itself here</span>
+
+<span class="cmd-comment"># Module still visible in kernel's internal structures:</span>
+<span class="cmd-prompt">$</span> <span class="cmd-text">grep</span> <span class="cmd-arg">rootkat</span> /proc/kallsyms        <span class="cmd-comment"># all symbols still exported</span>
+<span class="cmd-prompt">$</span> <span class="cmd-text">ls</span> /sys/kernel/debug/tracing/      <span class="cmd-comment"># trace dir still present</span></pre>
+    </div>
+  </div>
+</section>
+
+<!-- ── Footer ────────────────────────────────────────────── -->
+<footer>
+  <div class="container">
+    <div class="footer-inner">
+      <span>rootkat &mdash; MIT license &mdash; educational use only</span>
+      <div class="footer-links">
+        <a href="https://github.com/exec/rootkat">GitHub</a>
+        <a href="https://github.com/exec/rootkat/blob/main/docs/threat-model.md">Threat model</a>
+        <a href="https://github.com/exec/rootkat/issues">Issues</a>
+      </div>
+    </div>
+  </div>
+</footer>
+
+</body>
+</html>
