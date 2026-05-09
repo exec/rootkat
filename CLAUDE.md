@@ -179,6 +179,17 @@ Choosing high real-time signals avoids stomping on common app signals.
   printk hook in 3143844: the persistence test hung the boot for
   420s. Reverted in 704bd4b — silence rootkat's own logs at compile
   time via `pr_debug` instead.
+- **Tail-call optimization defeats the recursion guard too.**
+  `return orig(...)` as the last statement of a hook lets gcc
+  sibling-call optimize it into a JMP. The return address on the
+  stack stays as the kernel-side caller, so when the JMP lands at
+  the ftrace-patched function entry, parent_ip is in kernel core,
+  not in `THIS_MODULE` — the guard fails to short-circuit and the
+  replacement runs again, infinitely. Hit on Debian 6.12 / Fedora
+  6.14 in the 2026-05-08 cross-distro survey on eqr; Ubuntu 6.8
+  and 7.0 happen to dodge the optimization in CI. Compiler-enforced
+  defense in `lkm/Makefile`: `ccflags-y += -fno-optimize-sibling-calls`.
+  Don't remove that flag without a damn good reason.
 
 ## Design decisions to respect
 
